@@ -51,6 +51,32 @@ class AdminContestResponse(BaseModel):
     created_at: datetime
     entry_count: int = Field(..., description="Number of entries for this contest")
     official_rules: Optional[OfficialRulesResponse] = Field(None, description="Official contest rules")
+    status: Optional[str] = Field(None, description="Contest status: active, inactive, ended, upcoming")
+    
+    def __init__(self, **data):
+        # Compute status before creating the object
+        if 'status' not in data:
+            now = datetime.utcnow()
+            active = data.get('active', True)
+            start_time = data.get('start_time')
+            end_time = data.get('end_time')
+            
+            if not active:
+                # If manually set to inactive, check if it has ended
+                if end_time and end_time <= now:
+                    data['status'] = "ended"
+                else:
+                    data['status'] = "inactive"
+            else:
+                # If active, check if it's actually started/ended
+                if start_time and start_time > now:
+                    data['status'] = "upcoming"
+                elif end_time and end_time <= now:
+                    data['status'] = "ended"
+                else:
+                    data['status'] = "active"
+        
+        super().__init__(**data)
     
     class Config:
         from_attributes = True
