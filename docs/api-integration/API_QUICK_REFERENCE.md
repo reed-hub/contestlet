@@ -464,8 +464,8 @@ USE_MOCK_SMS=true                  # Set to false for production SMS
 
 ## 🔧 Twilio Configuration
 ```env
-TWILIO_ACCOUNT_SID=AC829dbe9395c71407a7f60887cb816a3a
-TWILIO_AUTH_TOKEN=3f376878eacd0d7e81e090c1aeae5368
-TWILIO_VERIFY_SERVICE_SID=VA89f2b01132c234a3fd2f3981f81bb773
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_VERIFY_SERVICE_SID=VAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 USE_MOCK_SMS=true  # false for production SMS
 ```
