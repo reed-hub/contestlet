@@ -162,15 +162,16 @@ Authorization: Bearer {admin_token}
 ### Notify Winner via SMS
 ```bash
 POST /admin/contests/{contest_id}/notify-winner
-Authorization: Bearer {admin_token}
+Authorization: Bearer {admin_jwt_token}  # ⚠️ JWT REQUIRED (not legacy token)
 Content-Type: application/json
 
 {
   "entry_id": 12,
-  "message": "🎉 Congrats! You're the winner of our Coca-Cola Summer Contest!"
+  "message": "🎉 Congrats! You're the winner of our Coca-Cola Summer Contest!",
+  "test_mode": false  # Optional: true to simulate without sending SMS
 }
 
-# Response
+# Success Response
 {
   "success": true,
   "message": "Winner notification sent successfully",
@@ -178,9 +179,28 @@ Content-Type: application/json
   "contest_id": 1,
   "winner_phone": "+1***8204",
   "sms_status": "SMS notification sent successfully - SID: SM...",
+  "test_mode": false,
+  "notification_id": 5,
+  "twilio_sid": "SM1234567890abcdef...",
   "notification_sent_at": "2025-08-20T04:20:45.480744"
 }
+
+# Rate Limited Response (429)
+{
+  "detail": "Too many SMS notifications. Please wait before sending another."
+}
+
+# Legacy Token Rejected (403)
+{
+  "detail": "SMS notifications require admin JWT authentication. Please authenticate via OTP."
+}
 ```
+
+### 🛑 SMS Notification Security
+- **Rate Limited**: 5 SMS per 5 minutes per admin
+- **JWT Required**: Must use admin JWT from OTP auth (legacy tokens rejected)
+- **Entry Validation**: User must have actually entered the contest
+- **Audit Trail**: All SMS attempts logged to database
 
 ## 📊 Response Codes
 

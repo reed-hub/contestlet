@@ -171,8 +171,12 @@
             
             <br><br>
             <h3>📱 SMS Winner Notifications</h3>
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 12px;">
+                <strong>⚠️ Security Update:</strong> SMS notifications now require admin JWT (not legacy token) and are rate limited.
+            </div>
             <input type="number" id="sms-contest-id" placeholder="Contest ID" min="1" style="width: 100px;">
             <input type="number" id="sms-entry-id" placeholder="Entry ID" min="1" style="width: 100px;">
+            <label style="margin-left: 10px;"><input type="checkbox" id="sms-test-mode"> Test Mode (simulate only)</label>
             <br><br>
             <textarea id="sms-message" placeholder="Enter custom SMS message for winner..." style="width: 400px; height: 60px;">🎉 Congratulations! You're the winner of our amazing contest! We'll contact you soon with details about claiming your prize.</textarea>
             <br><br>
@@ -582,6 +586,7 @@
             const contestId = document.getElementById('sms-contest-id').value;
             const entryId = document.getElementById('sms-entry-id').value;
             const message = document.getElementById('sms-message').value;
+            const testMode = document.getElementById('sms-test-mode').checked;
             
             if (!contestId || !entryId || !message.trim()) {
                 alert('Please fill in Contest ID, Entry ID, and SMS message');
@@ -589,22 +594,32 @@
             }
             
             try {
-                log('Sending SMS notification to winner...', { contestId, entryId, message });
+                log('Sending SMS notification to winner...', { contestId, entryId, message, testMode });
                 const result = await contestlet.admin.notifyWinner(
                     parseInt(contestId), 
                     parseInt(entryId), 
-                    message.trim()
+                    message.trim(),
+                    testMode  // ✨ NEW: Test mode support
                 );
                 
                 log('SMS Notification Result', result);
                 if (result.success) {
-                    showAdminMessage(`✅ SMS sent to winner ${result.winner_phone} - Status: ${result.sms_status}`);
+                    const statusText = testMode ? '(Test Mode)' : '';
+                    showAdminMessage(`✅ SMS sent to winner ${result.winner_phone} ${statusText} - Status: ${result.sms_status} - ID: ${result.notification_id}`);
                 } else {
                     showAdminError(result.message || 'Failed to send SMS notification');
                 }
             } catch (error) {
                 log('SMS Notification Error', error);
-                showAdminError(ContestletUtils.getErrorMessage(error));
+                
+                // ⚠️ Enhanced error handling for new error cases
+                if (error.status === 429) {
+                    showAdminError('Rate limited: Too many SMS notifications. Please wait 5 minutes.');
+                } else if (error.status === 403 && error.message?.includes('JWT')) {
+                    showAdminError('Admin JWT required. Please re-authenticate via OTP (legacy tokens not supported for SMS).');
+                } else {
+                    showAdminError(ContestletUtils.getErrorMessage(error));
+                }
             }
         }
         

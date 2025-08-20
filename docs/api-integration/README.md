@@ -51,6 +51,8 @@ Welcome to the Contestlet API integration documentation! This directory contains
 - 📍 Geolocation-based contest search
 - 👤 User entry management
 - 🔧 Admin operations interface
+- 🚨 **NEW**: Enhanced SMS winner notifications with security
+- 🧪 **NEW**: Test mode for SMS simulation
 - 📋 Real-time API response logging
 
 ---

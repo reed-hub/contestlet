@@ -383,14 +383,16 @@ class AdminModule {
    * @param {number} contestId - Contest ID
    * @param {number} entryId - Winner's entry ID  
    * @param {string} message - Custom SMS message to send
-   * @returns {Promise<Object>} SMS notification result
+   * @param {boolean} [testMode=false] - If true, simulate SMS without sending
+   * @returns {Promise<Object>} SMS notification result with enhanced fields
    */
-  async notifyWinner(contestId, entryId, message) {
+  async notifyWinner(contestId, entryId, message, testMode = false) {
     return await this._adminRequest(`/admin/contests/${contestId}/notify-winner`, {
       method: 'POST',
       body: JSON.stringify({
         entry_id: entryId,
-        message: message
+        message: message,
+        test_mode: testMode  // ✨ NEW: Test mode support
       }),
     });
   }
@@ -399,9 +401,10 @@ class AdminModule {
    * Select winner and optionally notify via SMS
    * @param {number} contestId - Contest ID
    * @param {string} [smsMessage] - Optional SMS message. If provided, winner will be notified
+   * @param {boolean} [testMode=false] - If true, simulate SMS without sending
    * @returns {Promise<Object>} Combined result of winner selection and optional SMS
    */
-  async selectAndNotifyWinner(contestId, smsMessage = null) {
+  async selectAndNotifyWinner(contestId, smsMessage = null, testMode = false) {
     try {
       // Step 1: Select winner
       const winnerResult = await this.selectWinner(contestId);
@@ -420,7 +423,8 @@ class AdminModule {
         smsResult = await this.notifyWinner(
           contestId, 
           winnerResult.winner_entry_id, 
-          smsMessage
+          smsMessage,
+          testMode  // ✨ NEW: Pass test mode to SMS notification
         );
       }
 

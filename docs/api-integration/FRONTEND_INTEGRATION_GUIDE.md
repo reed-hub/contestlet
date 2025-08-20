@@ -13,6 +13,30 @@ This guide provides everything you need to integrate a frontend application with
 
 ---
 
+## ⚠️ **BREAKING CHANGES - SMS Notifications**
+
+**Important updates for SMS winner notifications:**
+
+### 🛑 **Security Changes (Action Required)**
+1. **Admin JWT Required**: Legacy admin tokens **NO LONGER WORK** for SMS notifications
+   - Must authenticate via OTP to get admin JWT: `POST /auth/request-otp` → `POST /auth/verify-otp`
+   - Update admin login flow to use OTP authentication
+   
+2. **Rate Limiting**: SMS notifications are now rate limited (5 per 5 minutes per admin)
+   - Handle `429 Too Many Requests` responses
+   - Show appropriate user feedback when rate limited
+
+3. **New Response Format**: SMS notification responses include additional fields
+   - `test_mode`, `notification_id`, `twilio_sid` fields added
+   - Update response parsing code accordingly
+
+### ✨ **New Features Available**
+- **Test Mode**: Add `test_mode: true` to simulate SMS without sending
+- **Audit Trail**: Each SMS gets a `notification_id` for tracking
+- **Enhanced Error Handling**: Specific error messages for different failure cases
+
+---
+
 ## 🚀 Quick Start
 
 ### Base Configuration
@@ -535,11 +559,12 @@ if (winnerResult.success) {
 
 #### Notify Winner via SMS
 ```javascript
-async function notifyWinner(contestId, entryId, customMessage) {
+async function notifyWinner(contestId, entryId, customMessage, testMode = false) {
   try {
     const notificationData = {
       entry_id: entryId,
-      message: customMessage || "🎉 Congratulations! You're the winner! We'll contact you soon with details about claiming your prize."
+      message: customMessage || "🎉 Congratulations! You're the winner! We'll contact you soon with details about claiming your prize.",
+      test_mode: testMode  // ✨ NEW: Set to true for testing without sending real SMS
     };
 
     const result = await adminAPI.request(`/admin/contests/${contestId}/notify-winner`, {
@@ -554,13 +579,31 @@ async function notifyWinner(contestId, entryId, customMessage) {
       contestId: result.contest_id,
       winnerPhone: result.winner_phone, // Masked for privacy
       smsStatus: result.sms_status,
+      testMode: result.test_mode,        // ✨ NEW: Indicates if this was a test
+      notificationId: result.notification_id, // ✨ NEW: Database ID for audit trail
+      twilioSid: result.twilio_sid,      // ✨ NEW: Twilio message ID (if real SMS)
       sentAt: result.notification_sent_at,
     };
   } catch (error) {
-    return {
-      success: false,
-      error: error.message,
-    };
+    // ⚠️ IMPORTANT: Handle new error cases
+    if (error.status === 429) {
+      return {
+        success: false,
+        error: "Rate limited: Too many SMS notifications. Please wait.",
+        rateLimited: true,
+      };
+    } else if (error.status === 403 && error.message?.includes('JWT')) {
+      return {
+        success: false,
+        error: "Admin JWT required. Please re-authenticate via OTP.",
+        authenticationRequired: true,
+      };
+    } else {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
   }
 }
 
