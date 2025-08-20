@@ -7,10 +7,11 @@ Contestlet uses a comprehensive timezone system to ensure contest times are accu
 ## 🎯 Core Principles
 
 ### 1. **UTC Storage, Local Display**
-- **All times stored in database**: UTC (Coordinated Universal Time)
+- **All times stored in database**: UTC (Coordinated Universal Time) ✅ CONFIRMED
 - **Admin interface**: Displays and accepts times in admin's preferred timezone
 - **Public API**: Returns UTC times with timezone metadata
 - **Automatic conversion**: System handles all timezone conversions
+- **SQLite handling**: All models use timezone-aware UTC defaults for consistent storage
 
 ### 2. **Admin Timezone Preferences**
 - Each admin can set their preferred timezone

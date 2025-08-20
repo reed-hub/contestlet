@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database.database import Base
+from app.core.datetime_utils import utc_now
 
 
 class Contest(Base):
@@ -17,7 +18,7 @@ class Contest(Base):
     end_time = Column(DateTime(timezone=True), nullable=False)
     prize_description = Column(Text)
     active = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), default=utc_now)
     
     # Winner tracking
     winner_entry_id = Column(Integer, nullable=True)  # ID of winning entry

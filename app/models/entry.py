@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, DateTime, Boolean, ForeignKey, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database.database import Base
+from app.core.datetime_utils import utc_now
 
 
 class Entry(Base):
@@ -10,7 +11,7 @@ class Entry(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     contest_id = Column(Integer, ForeignKey("contests.id"), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), default=utc_now)
     selected = Column(Boolean, default=False)  # For marking winners
     status = Column(String, default="active")  # Entry status: active, winner, disqualified
     

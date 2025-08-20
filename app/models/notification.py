@@ -6,6 +6,7 @@ from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Foreign
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database.database import Base
+from app.core.datetime_utils import utc_now
 
 
 class Notification(Base):
@@ -34,7 +35,7 @@ class Notification(Base):
     
     # Metadata
     test_mode = Column(Boolean, default=False, nullable=False)  # True if this was a test notification
-    sent_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    sent_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     admin_user_id = Column(String(50), nullable=True)  # ID of admin who triggered the notification
     
     # Relationships
