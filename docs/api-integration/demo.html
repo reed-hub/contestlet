@@ -182,6 +182,25 @@
             <br><br>
             <button onclick="notifyWinner()" id="notify-winner-btn" disabled>Send SMS to Winner</button>
             
+            <br><br>
+            <h3>📊 SMS Notification Logs</h3>
+            <div style="margin-bottom: 10px;">
+                <input type="number" id="log-contest-id" placeholder="Contest ID (optional)" min="1" style="width: 120px;">
+                <select id="log-notification-type" style="margin-left: 10px;">
+                    <option value="">All Types</option>
+                    <option value="winner">Winner Notifications</option>
+                    <option value="reminder">Reminders</option>
+                    <option value="general">General</option>
+                </select>
+                <button onclick="loadNotificationLogs()" style="margin-left: 10px;">Load Logs</button>
+                <button onclick="clearLogsTable()" style="margin-left: 10px;">Clear</button>
+            </div>
+            <div id="notification-logs-container" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px;">
+                <div id="notification-logs-placeholder" style="padding: 20px; text-align: center; color: #666;">
+                    Click "Load Logs" to view SMS notification audit trail
+                </div>
+            </div>
+            
             <div id="admin-container"></div>
         </div>
         
@@ -621,6 +640,96 @@
                     showAdminError(ContestletUtils.getErrorMessage(error));
                 }
             }
+        }
+        
+        async function loadNotificationLogs() {
+            try {
+                const contestId = document.getElementById('log-contest-id').value;
+                const notificationType = document.getElementById('log-notification-type').value;
+                
+                log('Loading SMS notification logs...', { contestId, notificationType });
+                
+                const result = await contestlet.admin.getNotificationLogs(
+                    contestId ? parseInt(contestId) : null,
+                    notificationType || null,
+                    50
+                );
+                
+                log('Notification Logs Result', result);
+                
+                if (result.success) {
+                    displayNotificationLogs(result.logs);
+                    showAdminMessage(`✅ Loaded ${result.logs.length} notification records`);
+                } else {
+                    showAdminError(result.error || 'Failed to load notification logs');
+                }
+                
+            } catch (error) {
+                log('Load Notification Logs Error', error);
+                showAdminError(ContestletUtils.getErrorMessage(error));
+            }
+        }
+        
+        function displayNotificationLogs(logs) {
+            const container = document.getElementById('notification-logs-container');
+            
+            if (logs.length === 0) {
+                container.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No notification records found</div>';
+                return;
+            }
+            
+            let tableHTML = `
+                <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                    <thead>
+                        <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                            <th style="padding: 8px; text-align: left; border-bottom: 1px solid #dee2e6;">Sent At</th>
+                            <th style="padding: 8px; text-align: left; border-bottom: 1px solid #dee2e6;">Contest</th>
+                            <th style="padding: 8px; text-align: left; border-bottom: 1px solid #dee2e6;">Type</th>
+                            <th style="padding: 8px; text-align: left; border-bottom: 1px solid #dee2e6;">Recipient</th>
+                            <th style="padding: 8px; text-align: left; border-bottom: 1px solid #dee2e6;">Status</th>
+                            <th style="padding: 8px; text-align: left; border-bottom: 1px solid #dee2e6;">Mode</th>
+                            <th style="padding: 8px; text-align: left; border-bottom: 1px solid #dee2e6;">Message</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            logs.forEach(log => {
+                const statusColor = log.status === 'sent' ? '#28a745' : 
+                                  log.status === 'failed' ? '#dc3545' : '#6c757d';
+                const typeColor = log.type === 'winner' ? '#007bff' : 
+                                log.type === 'reminder' ? '#ffc107' : '#6c757d';
+                
+                tableHTML += `
+                    <tr style="border-bottom: 1px solid #dee2e6;">
+                        <td style="padding: 6px; font-size: 11px;">${log.sentAt.toLocaleString()}</td>
+                        <td style="padding: 6px;">${log.contestName || 'N/A'}</td>
+                        <td style="padding: 6px;">
+                            <span style="background: ${typeColor}; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">
+                                ${log.type}
+                            </span>
+                        </td>
+                        <td style="padding: 6px;">${log.userPhone}</td>
+                        <td style="padding: 6px;">
+                            <span style="color: ${statusColor}; font-weight: bold; font-size: 11px;">
+                                ${log.status.toUpperCase()}
+                            </span>
+                        </td>
+                        <td style="padding: 6px; font-size: 11px;">${log.testMode ? '🧪 Test' : '📱 Real'}</td>
+                        <td style="padding: 6px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px;" title="${log.message}">
+                            ${log.message}
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            tableHTML += '</tbody></table>';
+            container.innerHTML = tableHTML;
+        }
+        
+        function clearLogsTable() {
+            const container = document.getElementById('notification-logs-container');
+            container.innerHTML = '<div id="notification-logs-placeholder" style="padding: 20px; text-align: center; color: #666;">Click "Load Logs" to view SMS notification audit trail</div>';
         }
         
         async function loadAllContests() {

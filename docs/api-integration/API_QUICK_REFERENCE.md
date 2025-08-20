@@ -213,6 +213,37 @@ Content-Type: application/json
 }
 ```
 
+### View SMS Notification Logs
+```bash
+GET /admin/notifications?contest_id=1&notification_type=winner&limit=50
+Authorization: Bearer {admin_token}
+
+# Query Parameters (all optional)
+# - contest_id: Filter by specific contest
+# - notification_type: Filter by type (winner, reminder, general)
+# - limit: Number of records (default: 50, max: 50)
+
+# Response
+[
+  {
+    "id": 5,
+    "contest_id": 1,
+    "user_id": 2,
+    "entry_id": 12,
+    "message": "🎉 Congrats! You're the winner!",
+    "notification_type": "winner",
+    "status": "sent",          # sent, failed, pending
+    "twilio_sid": "SM1234567890abcdef...",
+    "error_message": null,
+    "test_mode": false,
+    "sent_at": "2025-08-20T04:20:45.480744",
+    "admin_user_id": "1",
+    "contest_name": "Summer Contest",
+    "user_phone": "+1***8204"  # Masked for privacy
+  }
+]
+```
+
 ### 🛑 SMS Notification Security
 - **Rate Limited**: 5 SMS per 5 minutes per admin
 - **JWT Required**: Must use admin JWT from OTP auth (legacy tokens rejected)

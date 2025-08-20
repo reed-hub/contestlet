@@ -648,6 +648,174 @@ async function selectAndNotifyWinner(contestId, customMessage) {
 }
 ```
 
+#### View SMS Notification Logs
+```javascript
+async function getNotificationLogs(contestId = null, notificationType = null, limit = 50) {
+  try {
+    // Build query parameters
+    const params = new URLSearchParams();
+    if (contestId) params.append('contest_id', contestId);
+    if (notificationType) params.append('notification_type', notificationType);
+    if (limit !== 50) params.append('limit', limit);
+    
+    const queryString = params.toString();
+    const endpoint = `/admin/notifications${queryString ? `?${queryString}` : ''}`;
+    
+    const logs = await adminAPI.request(endpoint);
+    
+    return {
+      success: true,
+      logs: logs.map(log => ({
+        id: log.id,
+        contestId: log.contest_id,
+        contestName: log.contest_name,
+        userId: log.user_id,
+        entryId: log.entry_id,
+        message: log.message,
+        type: log.notification_type,
+        status: log.status, // sent, failed, pending
+        twilioSid: log.twilio_sid,
+        errorMessage: log.error_message,
+        testMode: log.test_mode,
+        sentAt: new Date(log.sent_at),
+        adminUserId: log.admin_user_id,
+        userPhone: log.user_phone, // Masked for privacy
+      })),
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+}
+
+// Usage examples
+// Get all notification logs
+const allLogs = await getNotificationLogs();
+
+// Get logs for specific contest
+const contestLogs = await getNotificationLogs(1);
+
+// Get only winner notifications
+const winnerLogs = await getNotificationLogs(null, 'winner');
+
+// Get recent logs for specific contest and type
+const recentWinnerLogs = await getNotificationLogs(1, 'winner', 10);
+
+if (allLogs.success) {
+  console.log(`Found ${allLogs.logs.length} notification records`);
+  allLogs.logs.forEach(log => {
+    console.log(`${log.sentAt}: ${log.type} to ${log.userPhone} - ${log.status}`);
+  });
+}
+```
+
+#### SMS Notification Audit Dashboard
+```javascript
+// Example React component for displaying notification logs
+function NotificationLogsDashboard() {
+  const [logs, setLogs] = useState([]);
+  const [filter, setFilter] = useState({ contestId: '', type: 'all' });
+  const [loading, setLoading] = useState(false);
+
+  const loadLogs = async () => {
+    setLoading(true);
+    try {
+      const result = await getNotificationLogs(
+        filter.contestId || null,
+        filter.type === 'all' ? null : filter.type
+      );
+      
+      if (result.success) {
+        setLogs(result.logs);
+      } else {
+        console.error('Failed to load logs:', result.error);
+      }
+    } catch (error) {
+      console.error('Error loading logs:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadLogs();
+  }, [filter]);
+
+  return (
+    <div className="notification-logs">
+      <h3>SMS Notification Audit Trail</h3>
+      
+      {/* Filters */}
+      <div className="filters">
+        <input
+          type="number"
+          placeholder="Contest ID (optional)"
+          value={filter.contestId}
+          onChange={(e) => setFilter({...filter, contestId: e.target.value})}
+        />
+        <select 
+          value={filter.type}
+          onChange={(e) => setFilter({...filter, type: e.target.value})}
+        >
+          <option value="all">All Types</option>
+          <option value="winner">Winner Notifications</option>
+          <option value="reminder">Reminders</option>
+          <option value="general">General</option>
+        </select>
+        <button onClick={loadLogs}>Refresh</button>
+      </div>
+
+      {/* Logs Table */}
+      {loading ? (
+        <div>Loading...</div>
+      ) : (
+        <table className="logs-table">
+          <thead>
+            <tr>
+              <th>Sent At</th>
+              <th>Contest</th>
+              <th>Type</th>
+              <th>Recipient</th>
+              <th>Status</th>
+              <th>Test Mode</th>
+              <th>Message</th>
+            </tr>
+          </thead>
+          <tbody>
+            {logs.map(log => (
+              <tr key={log.id} className={`status-${log.status}`}>
+                <td>{log.sentAt.toLocaleString()}</td>
+                <td>{log.contestName}</td>
+                <td>
+                  <span className={`badge type-${log.type}`}>
+                    {log.type}
+                  </span>
+                </td>
+                <td>{log.userPhone}</td>
+                <td>
+                  <span className={`badge status-${log.status}`}>
+                    {log.status}
+                  </span>
+                </td>
+                <td>{log.testMode ? '🧪 Test' : '📱 Real'}</td>
+                <td className="message-cell">
+                  <span title={log.message}>
+                    {log.message.substring(0, 50)}
+                    {log.message.length > 50 ? '...' : ''}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+```
+
 ---
 
 ## ⚠️ Error Handling

@@ -445,6 +445,54 @@ class AdminModule {
       };
     }
   }
+
+  /**
+   * Get SMS notification logs for audit trail
+   * @param {number} [contestId] - Filter by specific contest ID
+   * @param {string} [notificationType] - Filter by notification type (winner, reminder, general)
+   * @param {number} [limit=50] - Maximum number of logs to return
+   * @returns {Promise<Object>} Notification logs
+   */
+  async getNotificationLogs(contestId = null, notificationType = null, limit = 50) {
+    try {
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (contestId) params.append('contest_id', contestId);
+      if (notificationType) params.append('notification_type', notificationType);
+      if (limit !== 50) params.append('limit', limit);
+      
+      const queryString = params.toString();
+      const endpoint = `/admin/notifications${queryString ? `?${queryString}` : ''}`;
+      
+      const logs = await this._adminRequest(endpoint);
+      
+      return {
+        success: true,
+        logs: logs.map(log => ({
+          id: log.id,
+          contestId: log.contest_id,
+          contestName: log.contest_name,
+          userId: log.user_id,
+          entryId: log.entry_id,
+          message: log.message,
+          type: log.notification_type,
+          status: log.status, // sent, failed, pending
+          twilioSid: log.twilio_sid,
+          errorMessage: log.error_message,
+          testMode: log.test_mode,
+          sentAt: new Date(log.sent_at),
+          adminUserId: log.admin_user_id,
+          userPhone: log.user_phone, // Masked for privacy
+        })),
+        total: logs.length,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
 }
 
 // Utility functions
@@ -599,6 +647,21 @@ try {
       "🎊 You're our lucky winner! Check your email for next steps."
     );
     console.log('Winner selected and notified:', combinedResult.smsNotified);
+
+    // View SMS notification logs for audit trail
+    const logsResult = await contestlet.admin.getNotificationLogs();
+    if (logsResult.success) {
+      console.log(`Found ${logsResult.logs.length} notification records`);
+      logsResult.logs.forEach(log => {
+        console.log(`${log.sentAt.toLocaleString()}: ${log.type} to ${log.userPhone} - ${log.status}`);
+      });
+    }
+
+    // Get logs for specific contest
+    const contestLogs = await contestlet.admin.getNotificationLogs(1);
+    
+    // Get only winner notifications  
+    const winnerLogs = await contestlet.admin.getNotificationLogs(null, 'winner');
     
     // Check current user info and role
     const userInfo = await contestlet.auth.getCurrentUser();

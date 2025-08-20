@@ -38,6 +38,8 @@ Welcome to the Contestlet API integration documentation! This directory contains
 - ⚠️ Comprehensive error handling
 - 🌍 Geolocation utilities
 - 🛡️ Admin operations support
+- 📧 **NEW**: SMS notification management with audit logging
+- 📊 **NEW**: Comprehensive notification logs API
 - 📦 Compatible with React, Vue, Angular, and vanilla JS
 
 ### 🎪 [Interactive Demo](./demo.html)
@@ -53,6 +55,7 @@ Welcome to the Contestlet API integration documentation! This directory contains
 - 🔧 Admin operations interface
 - 🚨 **NEW**: Enhanced SMS winner notifications with security
 - 🧪 **NEW**: Test mode for SMS simulation
+- 📊 **NEW**: SMS notification audit trail with filtering
 - 📋 Real-time API response logging
 
 ---
