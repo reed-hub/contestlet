@@ -13,3 +13,4 @@ class User(Base):
     
     # Relationship to entries
     entries = relationship("Entry", back_populates="user")
+    notifications = relationship("Notification", back_populates="user")

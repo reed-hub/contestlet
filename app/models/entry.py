@@ -16,3 +16,4 @@ class Entry(Base):
     # Relationships
     user = relationship("User", back_populates="entries")
     contest = relationship("Contest", back_populates="entries")
+    notifications = relationship("Notification", back_populates="entry")

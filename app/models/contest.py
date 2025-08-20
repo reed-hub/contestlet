@@ -22,3 +22,4 @@ class Contest(Base):
     # Relationships
     entries = relationship("Entry", back_populates="contest")
     official_rules = relationship("OfficialRules", back_populates="contest", uselist=False)
+    notifications = relationship("Notification", back_populates="contest")

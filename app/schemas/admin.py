@@ -82,6 +82,7 @@ class WinnerNotificationRequest(BaseModel):
     """Request to notify a contest winner via SMS"""
     entry_id: int = Field(..., description="ID of the winning entry")
     message: str = Field(..., min_length=1, max_length=1600, description="SMS message to send to winner")
+    test_mode: bool = Field(default=False, description="If true, simulate sending without actually sending SMS")
     
     @validator('message')
     def validate_message(cls, v):
@@ -98,6 +99,9 @@ class WinnerNotificationResponse(BaseModel):
     contest_id: int = Field(..., description="ID of the contest")
     winner_phone: str = Field(..., description="Phone number of the winner (masked for privacy)")
     sms_status: str = Field(..., description="SMS delivery status")
+    test_mode: bool = Field(..., description="Whether this was sent in test mode")
+    notification_id: int = Field(..., description="ID of the notification record")
+    twilio_sid: Optional[str] = Field(None, description="Twilio message SID (if real SMS)")
     notification_sent_at: datetime = Field(default_factory=datetime.utcnow, description="When the notification was sent")
 
 
