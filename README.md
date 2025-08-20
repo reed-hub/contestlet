@@ -12,6 +12,20 @@ A FastAPI backend for hosting micro sweepstakes-style contests across the U.S.
 - **🗄️ SQLAlchemy ORM** with easy PostgreSQL migration
 - **🚀 RESTful API** with proper validation and documentation
 
+## 📚 Documentation
+
+### For Frontend Developers
+👉 **[Frontend Integration Guide](./docs/api-integration/)** - Complete documentation for integrating with the Contestlet API
+
+**What's included:**
+- 📖 Step-by-step integration guide
+- 📋 Quick API reference
+- 🛠️ Ready-to-use JavaScript SDK
+- 🎪 Interactive demo page
+
+### For Backend Developers
+Continue reading this README for API details, deployment, and server configuration.
+
 ## Project Structure
 
 ```
@@ -23,6 +37,8 @@ contestlet/
 │   ├── routers/        # API route handlers
 │   ├── schemas/        # Pydantic schemas
 │   └── main.py         # FastAPI application
+├── docs/               # Documentation
+│   └── api-integration/ # Frontend integration guides
 ├── requirements.txt    # Python dependencies
 └── README.md
 ```

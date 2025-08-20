@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contestlet API Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        h1, h2 {
+            color: #333;
+            margin-top: 0;
+        }
+        
+        .auth-section, .contest-section {
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 16px;
+            margin: 16px 0;
+        }
+        
+        input, button {
+            padding: 8px 12px;
+            margin: 4px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        button {
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            border: none;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        
+        .contest-card {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 8px 0;
+            background: #f8f9fa;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-active { background: #28a745; }
+        .status-upcoming { background: #ffc107; }
+        .status-ended { background: #6c757d; }
+        
+        .hidden { display: none; }
+        
+        pre {
+            background: #f1f1f1;
+            padding: 12px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Contestlet API Demo</h1>
+        <p>This demo shows how to integrate with the Contestlet API using the JavaScript SDK.</p>
+        
+        <div class="auth-section">
+            <h2>🔐 Authentication</h2>
+            <div id="login-form">
+                <input type="tel" id="phone-input" placeholder="Phone: 555-123-4567" maxlength="14">
+                <button onclick="requestOTP()">Request OTP</button>
+                <br><br>
+                <input type="text" id="otp-input" placeholder="OTP Code: 123456" maxlength="6" class="hidden">
+                <button id="verify-btn" onclick="verifyOTP()" class="hidden">Verify OTP</button>
+                <button onclick="legacyAuth()">Legacy Auth (Skip OTP)</button>
+            </div>
+            
+            <div id="auth-status" class="hidden">
+                <span class="success">✅ Authenticated</span>
+                <button onclick="logout()">Logout</button>
+            </div>
+            
+            <div id="auth-message"></div>
+        </div>
+        
+        <div class="contest-section">
+            <h2>🎪 Contests</h2>
+            <button onclick="loadActiveContests()">Load Active Contests</button>
+            <button onclick="loadNearbyContests()">Find Nearby Contests</button>
+            <button onclick="loadMyEntries()" id="my-entries-btn" disabled>My Entries</button>
+            
+            <div id="contests-container"></div>
+        </div>
+        
+        <div class="container">
+            <h2>📋 API Response Log</h2>
+            <button onclick="clearLog()">Clear Log</button>
+            <pre id="api-log"></pre>
+        </div>
+    </div>
+
+    <script src="contestlet-sdk.js"></script>
+    <script>
+        // Initialize SDK
+        const contestlet = new ContestletSDK('http://localhost:8000');
+        
+        // Check if already authenticated
+        if (contestlet.isAuthenticated()) {
+            showAuthenticated();
+        }
+        
+        // Utility functions
+        function log(message, data = null) {
+            const logElement = document.getElementById('api-log');
+            const timestamp = new Date().toLocaleTimeString();
+            let logEntry = `[${timestamp}] ${message}`;
+            
+            if (data) {
+                logEntry += '\n' + JSON.stringify(data, null, 2);
+            }
+            
+            logElement.textContent += logEntry + '\n\n';
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('api-log').textContent = '';
+        }
+        
+        function showMessage(elementId, message, isError = false) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<span class="${isError ? 'error' : 'success'}">${message}</span>`;
+        }
+        
+        function showAuthenticated() {
+            document.getElementById('login-form').classList.add('hidden');
+            document.getElementById('auth-status').classList.remove('hidden');
+            document.getElementById('my-entries-btn').disabled = false;
+        }
+        
+        function showUnauthenticated() {
+            document.getElementById('login-form').classList.remove('hidden');
+            document.getElementById('auth-status').classList.add('hidden');
+            document.getElementById('my-entries-btn').disabled = true;
+        }
+        
+        // Authentication functions
+        async function requestOTP() {
+            const phone = document.getElementById('phone-input').value;
+            
+            if (!phone) {
+                showMessage('auth-message', 'Please enter a phone number', true);
+                return;
+            }
+            
+            try {
+                log('Requesting OTP...', { phone });
+                const result = await contestlet.auth.requestOTP(phone);
+                
+                log('OTP Request Result', result);
+                showMessage('auth-message', '📱 OTP sent! Check server console for mock SMS.');
+                
+                // Show OTP input
+                document.getElementById('otp-input').classList.remove('hidden');
+                document.getElementById('verify-btn').classList.remove('hidden');
+                
+            } catch (error) {
+                log('OTP Request Error', error);
+                showMessage('auth-message', ContestletUtils.getErrorMessage(error), true);
+            }
+        }
+        
+        async function verifyOTP() {
+            const phone = document.getElementById('phone-input').value;
+            const otp = document.getElementById('otp-input').value;
+            
+            if (!phone || !otp) {
+                showMessage('auth-message', 'Please enter phone number and OTP', true);
+                return;
+            }
+            
+            try {
+                log('Verifying OTP...', { phone, otp });
+                const result = await contestlet.auth.verifyOTP(phone, otp);
+                
+                log('OTP Verification Result', result);
+                
+                if (result.success) {
+                    showMessage('auth-message', '✅ Authentication successful!');
+                    showAuthenticated();
+                } else {
+                    showMessage('auth-message', result.message, true);
+                }
+                
+            } catch (error) {
+                log('OTP Verification Error', error);
+                showMessage('auth-message', ContestletUtils.getErrorMessage(error), true);
+            }
+        }
+        
+        async function legacyAuth() {
+            const phone = document.getElementById('phone-input').value;
+            
+            if (!phone) {
+                showMessage('auth-message', 'Please enter a phone number', true);
+                return;
+            }
+            
+            try {
+                log('Legacy authentication...', { phone });
+                const result = await contestlet.auth.legacyVerifyPhone(phone);
+                
+                log('Legacy Auth Result', result);
+                showMessage('auth-message', '✅ Authentication successful!');
+                showAuthenticated();
+                
+            } catch (error) {
+                log('Legacy Auth Error', error);
+                showMessage('auth-message', ContestletUtils.getErrorMessage(error), true);
+            }
+        }
+        
+        function logout() {
+            contestlet.auth.logout();
+            showUnauthenticated();
+            showMessage('auth-message', 'Logged out successfully');
+            log('User logged out');
+        }
+        
+        // Contest functions
+        async function loadActiveContests() {
+            try {
+                log('Loading active contests...');
+                const result = await contestlet.contests.getActive({ page: 1, size: 10 });
+                
+                log('Active Contests Result', result);
+                displayContests(result.contests, 'Active Contests');
+                
+            } catch (error) {
+                log('Load Active Contests Error', error);
+                showContestError(ContestletUtils.getErrorMessage(error));
+            }
+        }
+        
+        async function loadNearbyContests() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(async (position) => {
+                    try {
+                        const { latitude, longitude } = position.coords;
+                        log('Loading nearby contests...', { latitude, longitude });
+                        
+                        const result = await contestlet.contests.getNearby(latitude, longitude, 25);
+                        
+                        log('Nearby Contests Result', result);
+                        displayContests(result.contests, 'Nearby Contests');
+                        
+                    } catch (error) {
+                        log('Load Nearby Contests Error', error);
+                        showContestError(ContestletUtils.getErrorMessage(error));
+                    }
+                });
+            } else {
+                // Use default SF coordinates for demo
+                try {
+                    log('Using default SF coordinates...');
+                    const result = await contestlet.contests.getNearby(37.7749, -122.4194, 25);
+                    
+                    log('Nearby Contests Result', result);
+                    displayContests(result.contests, 'Nearby Contests (SF)');
+                    
+                } catch (error) {
+                    log('Load Nearby Contests Error', error);
+                    showContestError(ContestletUtils.getErrorMessage(error));
+                }
+            }
+        }
+        
+        async function loadMyEntries() {
+            try {
+                log('Loading user entries...');
+                const entries = await contestlet.entries.getMine();
+                
+                log('User Entries Result', entries);
+                displayEntries(entries);
+                
+            } catch (error) {
+                log('Load User Entries Error', error);
+                showContestError(ContestletUtils.getErrorMessage(error));
+            }
+        }
+        
+        async function enterContest(contestId) {
+            if (!contestlet.isAuthenticated()) {
+                showContestError('Please log in first');
+                return;
+            }
+            
+            try {
+                log('Entering contest...', { contestId });
+                const result = await contestlet.contests.enter(contestId);
+                
+                log('Contest Entry Result', result);
+                showContestMessage('✅ Successfully entered contest!');
+                
+                // Reload contests to update UI
+                loadActiveContests();
+                
+            } catch (error) {
+                log('Contest Entry Error', error);
+                
+                if (error.status === 409) {
+                    showContestError('You have already entered this contest');
+                } else if (error.status === 400) {
+                    showContestError('This contest has expired or is not available');
+                } else {
+                    showContestError(ContestletUtils.getErrorMessage(error));
+                }
+            }
+        }
+        
+        function displayContests(contests, title) {
+            const container = document.getElementById('contests-container');
+            
+            if (contests.length === 0) {
+                container.innerHTML = `<h3>${title}</h3><p>No contests found.</p>`;
+                return;
+            }
+            
+            let html = `<h3>${title} (${contests.length})</h3>`;
+            
+            contests.forEach(contest => {
+                const status = ContestletUtils.getContestStatus(contest);
+                const distance = contest.distance_miles ? 
+                    ` • ${ContestletUtils.formatDistance(contest.distance_miles)} away` : '';
+                
+                html += `
+                    <div class="contest-card">
+                        <h4>
+                            <span class="status-indicator status-${status}"></span>
+                            ${contest.name}
+                        </h4>
+                        <p>${contest.description || 'No description available'}</p>
+                        <p><strong>Prize:</strong> ${contest.prize_description || 'Not specified'}</p>
+                        <p><strong>Location:</strong> ${contest.location || 'Not specified'}${distance}</p>
+                        <p><strong>Duration:</strong> ${ContestletUtils.formatDateTime(contest.start_time)} - ${ContestletUtils.formatDateTime(contest.end_time)}</p>
+                        <button onclick="enterContest(${contest.id})" ${!contestlet.isAuthenticated() || status !== 'active' ? 'disabled' : ''}>
+                            ${status === 'active' ? 'Enter Contest' : status.toUpperCase()}
+                        </button>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function displayEntries(entries) {
+            const container = document.getElementById('contests-container');
+            
+            if (entries.length === 0) {
+                container.innerHTML = '<h3>My Entries</h3><p>You haven\'t entered any contests yet.</p>';
+                return;
+            }
+            
+            let html = `<h3>My Entries (${entries.length})</h3>`;
+            
+            entries.forEach(entry => {
+                const contest = entry.contest;
+                const status = ContestletUtils.getContestStatus(contest);
+                
+                html += `
+                    <div class="contest-card">
+                        <h4>
+                            <span class="status-indicator status-${status}"></span>
+                            ${contest.name}
+                            ${entry.selected ? ' 🏆 WINNER!' : ''}
+                        </h4>
+                        <p>${contest.description || 'No description available'}</p>
+                        <p><strong>Entered:</strong> ${ContestletUtils.formatDateTime(entry.created_at)}</p>
+                        <p><strong>Status:</strong> ${entry.selected ? 'Winner Selected!' : status.toUpperCase()}</p>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function showContestMessage(message) {
+            const container = document.getElementById('contests-container');
+            container.innerHTML = `<div class="success">${message}</div>` + container.innerHTML;
+        }
+        
+        function showContestError(message) {
+            const container = document.getElementById('contests-container');
+            container.innerHTML = `<div class="error">${message}</div>` + container.innerHTML;
+        }
+        
+        // Auto-format phone input
+        document.getElementById('phone-input').addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length >= 6) {
+                value = value.slice(0, 3) + '-' + value.slice(3, 6) + '-' + value.slice(6, 10);
+            } else if (value.length >= 3) {
+                value = value.slice(0, 3) + '-' + value.slice(3);
+            }
+            e.target.value = value;
+        });
+        
+        // Auto-format OTP input
+        document.getElementById('otp-input').addEventListener('input', function(e) {
+            e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+        });
+        
+        // Initial log message
+        log('Contestlet API Demo initialized');
+        log('API Base URL: ' + contestlet.baseURL);
+        log('Authenticated: ' + contestlet.isAuthenticated());
+    </script>
+</body>
+</html>
