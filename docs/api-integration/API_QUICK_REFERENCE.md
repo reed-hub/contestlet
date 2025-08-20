@@ -147,6 +147,23 @@ Content-Type: application/json
 }
 ```
 
+### View All Contests
+```bash
+GET /admin/contests
+Authorization: Bearer {admin_token}
+
+# Response includes status field
+{
+  "id": 11,
+  "name": "Contest Name",
+  "active": false,
+  "start_time": "2024-01-01T10:00:00",
+  "end_time": "2024-01-02T10:00:00",
+  "status": "ended",  # ended, active, upcoming, inactive
+  "entry_count": 5
+}
+```
+
 ### View Contest Entries
 ```bash
 GET /admin/contests/{contest_id}/entries
@@ -201,6 +218,12 @@ Content-Type: application/json
 - **JWT Required**: Must use admin JWT from OTP auth (legacy tokens rejected)
 - **Entry Validation**: User must have actually entered the contest
 - **Audit Trail**: All SMS attempts logged to database
+
+### 📊 Contest Status Values
+- **"ended"**: Contest has finished (past end_time)
+- **"active"**: Contest is currently running
+- **"upcoming"**: Contest hasn't started yet (future start_time)
+- **"inactive"**: Contest is manually disabled but hasn't ended
 
 ## 📊 Response Codes
 
