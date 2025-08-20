@@ -73,17 +73,23 @@ const api = new ContestletAPI();
 
 ---
 
-## 🔐 Authentication Flow
+## 🔐 Authentication Flow (Twilio Verify API)
 
 ### 1. Phone Number Verification (OTP)
+
+The authentication system uses **Twilio Verify API** for secure SMS-based verification.
 
 #### Step 1: Request OTP
 ```javascript
 async function requestOTP(phoneNumber) {
   try {
+    // Format phone number (API accepts various US formats)
+    const cleanPhone = phoneNumber.replace(/\D/g, ''); // Remove non-digits
+    const formattedPhone = cleanPhone.length === 10 ? cleanPhone : cleanPhone;
+    
     const response = await api.request('/auth/request-otp', {
       method: 'POST',
-      body: JSON.stringify({ phone: phoneNumber }),
+      body: JSON.stringify({ phone: formattedPhone }),
     });
     
     return {
@@ -92,6 +98,15 @@ async function requestOTP(phoneNumber) {
       retryAfter: response.retry_after,
     };
   } catch (error) {
+    // Handle rate limiting
+    if (error.message.includes('429')) {
+      return {
+        success: false,
+        error: 'Too many requests. Please wait before requesting another code.',
+        rateLimited: true,
+      };
+    }
+    
     return {
       success: false,
       error: error.message,
@@ -99,13 +114,18 @@ async function requestOTP(phoneNumber) {
   }
 }
 
-// Usage
-const result = await requestOTP('5551234567');
+// Usage with real phone number
+const result = await requestOTP('18187958204'); // US phone number
 if (result.success) {
-  console.log('OTP sent successfully');
+  console.log('OTP sent successfully via Twilio');
   // Show OTP input form
+  // In development: Use code 123456
+  // In production: User receives real SMS
 } else {
   console.error('Failed to send OTP:', result.error);
+  if (result.rateLimited) {
+    // Show rate limiting message with retry timer
+  }
 }
 ```
 
@@ -113,11 +133,22 @@ if (result.success) {
 ```javascript
 async function verifyOTP(phoneNumber, otpCode) {
   try {
+    // Clean and validate inputs
+    const cleanPhone = phoneNumber.replace(/\D/g, '');
+    const cleanCode = otpCode.replace(/\D/g, '');
+    
+    if (cleanCode.length !== 6) {
+      return {
+        success: false,
+        message: 'OTP code must be 6 digits',
+      };
+    }
+    
     const response = await api.request('/auth/verify-otp', {
       method: 'POST',
       body: JSON.stringify({ 
-        phone: phoneNumber, 
-        code: otpCode 
+        phone: cleanPhone, 
+        code: cleanCode 
       }),
     });
     
@@ -127,6 +158,7 @@ async function verifyOTP(phoneNumber, otpCode) {
         success: true,
         token: response.access_token,
         userId: response.user_id,
+        message: response.message,
       };
     } else {
       return {
@@ -142,14 +174,31 @@ async function verifyOTP(phoneNumber, otpCode) {
   }
 }
 
-// Usage
-const result = await verifyOTP('5551234567', '123456');
+// Usage with Twilio Verify
+const result = await verifyOTP('18187958204', '123456'); // Use 123456 in development
 if (result.success) {
-  console.log('User authenticated:', result.userId);
+  console.log('User authenticated via Twilio Verify:', result.userId);
+  // User is now authenticated with JWT token
   // Redirect to dashboard or main app
 } else {
-  console.error('OTP verification failed:', result.message);
+  console.error('Twilio verification failed:', result.message);
+  // Common error messages:
+  // - "Invalid verification code"
+  // - "Verification code has expired. Please request a new one."
+  // - "Too many verification attempts. Please wait before trying again."
 }
+```
+
+### 📱 Development vs Production
+
+```javascript
+// Development mode (USE_MOCK_SMS=true)
+const devResult = await requestOTP('18187958204');
+// Always use code: 123456
+
+// Production mode (USE_MOCK_SMS=false)  
+const prodResult = await requestOTP('18187958204');
+// User receives real SMS with random 6-digit code
 ```
 
 ### 2. Token Management

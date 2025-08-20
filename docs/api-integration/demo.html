@@ -104,14 +104,20 @@
         <p>This demo shows how to integrate with the Contestlet API using the JavaScript SDK.</p>
         
         <div class="auth-section">
-            <h2>🔐 Authentication</h2>
+            <h2>🔐 Authentication (Twilio Verify API)</h2>
+            <div style="background: #e7f3ff; border: 1px solid #bee5eb; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 14px;">
+                <strong>🔗 Twilio Integration:</strong> 
+                SMS verification powered by Twilio Verify API<br>
+                <strong>📱 Development:</strong> Use code <code>123456</code> | 
+                <strong>🚀 Production:</strong> Real SMS codes sent
+            </div>
             <div id="login-form">
-                <input type="tel" id="phone-input" placeholder="Phone: 555-123-4567" maxlength="14">
-                <button onclick="requestOTP()">Request OTP</button>
+                <input type="tel" id="phone-input" placeholder="US Phone: 818-795-8204" maxlength="14" value="18187958204">
+                <button onclick="requestOTP()">Send SMS via Twilio</button>
                 <br><br>
-                <input type="text" id="otp-input" placeholder="OTP Code: 123456" maxlength="6" class="hidden">
-                <button id="verify-btn" onclick="verifyOTP()" class="hidden">Verify OTP</button>
-                <button onclick="legacyAuth()">Legacy Auth (Skip OTP)</button>
+                <input type="text" id="otp-input" placeholder="SMS Code (or 123456 for dev)" maxlength="6" class="hidden" value="123456">
+                <button id="verify-btn" onclick="verifyOTP()" class="hidden">Verify SMS Code</button>
+                <button onclick="legacyAuth()">Legacy Auth (Skip SMS)</button>
             </div>
             
             <div id="auth-status" class="hidden">

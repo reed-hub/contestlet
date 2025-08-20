@@ -6,7 +6,7 @@ Development: http://localhost:8000
 Production: https://your-domain.com
 ```
 
-## 🔐 Authentication
+## 🔐 Authentication (Twilio Verify API)
 
 ### Request OTP
 ```bash
@@ -14,7 +14,13 @@ POST /auth/request-otp
 Content-Type: application/json
 
 {
-  "phone": "5551234567"
+  "phone": "18187958204"  # US phone number (10 digits)
+}
+
+# Response
+{
+  "message": "Verification code sent successfully",
+  "retry_after": null
 }
 ```
 
@@ -24,8 +30,36 @@ POST /auth/verify-otp
 Content-Type: application/json
 
 {
-  "phone": "5551234567",
-  "code": "123456"
+  "phone": "18187958204",
+  "code": "123456"  # 6-digit code from SMS (or 123456 in mock mode)
+}
+
+# Success Response
+{
+  "success": true,
+  "message": "Phone verified successfully",
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "user_id": 2
+}
+
+# Error Response
+{
+  "success": false,
+  "message": "Invalid verification code",
+  "access_token": null,
+  "token_type": "bearer",
+  "user_id": null
+}
+```
+
+### Legacy Phone Verification (DEPRECATED)
+```bash
+POST /auth/verify-phone
+Content-Type: application/json
+
+{
+  "phone": "18187958204"
 }
 ```
 
@@ -113,20 +147,35 @@ Authorization: Bearer {admin_token}
 Authorization: Bearer contestlet-admin-super-secret-token-change-in-production
 ```
 
-## 📱 Phone Format
-- US numbers: `5551234567` or `15551234567`
-- International: `+15551234567`
+## 📱 Phone Format (Twilio Verify)
+- **US numbers only**: `5551234567`, `15551234567`, `+15551234567`
+- **Auto-formatting**: API accepts various formats, converts to E.164
+- **Validation**: Uses `phonenumbers` library for robust validation
+- **Test number**: `18187958204` (for development)
 
 ## 📍 Geolocation
 - Latitude: -90 to 90
 - Longitude: -180 to 180
 - Radius: 0.1 to 100 miles
 
-## ⏱️ Rate Limits
-- OTP requests: 5 per 5 minutes per phone number
-- General API: No specific limits (reasonable use)
+## ⏱️ Rate Limits (Twilio Protected)
+- **OTP requests**: 5 per 5 minutes per phone number
+- **Automatic blocking**: Returns 429 status after limit
+- **Reset time**: Provided in `Retry-After` header
+- **General API**: No specific limits (reasonable use)
 
-## 🧪 Development
-- Mock SMS codes appear in server console
-- Database auto-creates on first run
-- Interactive docs: `/docs`
+## 🧪 Development Mode
+- **Mock SMS**: `USE_MOCK_SMS=true` (default)
+- **Test code**: `123456` (always works in mock mode)
+- **Real SMS**: Set `USE_MOCK_SMS=false` for production
+- **Twilio logs**: Check server console for verification attempts
+- **Database**: Auto-creates on first run
+- **Interactive docs**: `/docs`
+
+## 🔧 Twilio Configuration
+```env
+TWILIO_ACCOUNT_SID=AC829dbe9395c71407a7f60887cb816a3a
+TWILIO_AUTH_TOKEN=3f376878eacd0d7e81e090c1aeae5368
+TWILIO_VERIFY_SERVICE_SID=VA89f2b01132c234a3fd2f3981f81bb773
+USE_MOCK_SMS=true  # false for production SMS
+```

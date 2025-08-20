@@ -81,26 +81,49 @@ class ContestletAPIError extends Error {
   }
 }
 
-// Authentication module
+// Authentication module (Twilio Verify API)
 class AuthModule {
   constructor(sdk) {
     this.sdk = sdk;
   }
 
+  /**
+   * Request OTP via Twilio Verify API
+   * @param {string} phoneNumber - US phone number (various formats accepted)
+   * @returns {Promise<{success: boolean, message: string, retryAfter: number|null}>}
+   */
   async requestOTP(phoneNumber) {
-    const normalizedPhone = this._normalizePhone(phoneNumber);
-    const response = await this.sdk.request('/auth/request-otp', {
-      method: 'POST',
-      body: JSON.stringify({ phone: normalizedPhone }),
-    });
-    
-    return {
-      success: true,
-      message: response.message,
-      retryAfter: response.retry_after,
-    };
+    try {
+      const normalizedPhone = this._normalizePhone(phoneNumber);
+      const response = await this.sdk.request('/auth/request-otp', {
+        method: 'POST',
+        body: JSON.stringify({ phone: normalizedPhone }),
+      });
+      
+      return {
+        success: true,
+        message: response.message,
+        retryAfter: response.retry_after,
+      };
+    } catch (error) {
+      if (error.status === 429) {
+        return {
+          success: false,
+          message: 'Too many requests. Please wait before requesting another code.',
+          retryAfter: 300, // Default retry time
+          rateLimited: true,
+        };
+      }
+      throw error;
+    }
   }
 
+  /**
+   * Verify OTP code via Twilio Verify API
+   * @param {string} phoneNumber - Same phone number used for request
+   * @param {string} otpCode - 6-digit code from SMS (or 123456 in development)
+   * @returns {Promise<{success: boolean, token?: string, userId?: number, message: string}>}
+   */
   async verifyOTP(phoneNumber, otpCode) {
     const normalizedPhone = this._normalizePhone(phoneNumber);
     const normalizedCode = this._normalizeOTP(otpCode);
@@ -119,6 +142,7 @@ class AuthModule {
         success: true,
         token: response.access_token,
         userId: response.user_id,
+        message: response.message,
       };
     } else {
       return {
@@ -361,20 +385,33 @@ if (typeof module !== 'undefined' && module.exports) {
   window.ContestletUtils = ContestletUtils;
 }
 
-// Example usage:
+// Example usage with Twilio Verify:
 /*
 // Initialize SDK
 const contestlet = new ContestletSDK('http://localhost:8000');
 
-// Authentication flow
+// Twilio Verify authentication flow
 try {
-  await contestlet.auth.requestOTP('555-123-4567');
-  const authResult = await contestlet.auth.verifyOTP('555-123-4567', '123456');
-  if (authResult.success) {
-    console.log('Authenticated!', authResult.userId);
+  // Step 1: Request OTP (sends SMS via Twilio)
+  const otpResult = await contestlet.auth.requestOTP('18187958204');
+  if (otpResult.success) {
+    console.log('SMS sent via Twilio:', otpResult.message);
+    
+    // Step 2: Verify OTP (user enters code from SMS)
+    // In development: Use 123456 
+    // In production: Use actual code from SMS
+    const authResult = await contestlet.auth.verifyOTP('18187958204', '123456');
+    if (authResult.success) {
+      console.log('Authenticated via Twilio Verify!', authResult.userId);
+      // User now has JWT token and can access protected endpoints
+    } else {
+      console.log('Verification failed:', authResult.message);
+    }
+  } else if (otpResult.rateLimited) {
+    console.log('Rate limited. Please wait before requesting another code.');
   }
 } catch (error) {
-  console.error('Auth error:', ContestletUtils.getErrorMessage(error));
+  console.error('Twilio auth error:', ContestletUtils.getErrorMessage(error));
 }
 
 // Get contests
