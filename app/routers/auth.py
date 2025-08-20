@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 from datetime import datetime
 from app.database.database import get_db
 from app.models.user import User
-from app.schemas.auth import PhoneVerificationRequest, TokenResponse
+from app.schemas.auth import PhoneVerificationRequest, TokenResponse, UserMeResponse
 from app.schemas.otp import OTPRequest, OTPVerification, OTPResponse, OTPVerificationResponse
-from app.core.auth import create_access_token
+from app.core.auth import create_access_token, verify_token
 from app.core.twilio_verify_service import twilio_verify_service
 from app.core.rate_limiter import rate_limiter
+from app.core.config import settings
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -86,8 +87,16 @@ async def verify_otp(
         db.commit()
         db.refresh(user)
     
-    # Create JWT token
-    access_token = create_access_token(data={"sub": str(user.id)})
+    # Determine user role based on admin phone list
+    admin_phones = settings.get_admin_phones()
+    user_role = "admin" if formatted_phone in admin_phones else "user"
+    
+    # Create JWT token with role
+    access_token = create_access_token(data={
+        "sub": str(user.id),
+        "phone": formatted_phone,
+        "role": user_role
+    })
     
     return OTPVerificationResponse(
         success=True,
@@ -123,11 +132,62 @@ async def verify_phone(
         db.commit()
         db.refresh(user)
     
-    # Create JWT token
-    access_token = create_access_token(data={"sub": str(user.id)})
+    # Determine user role based on admin phone list  
+    admin_phones = settings.get_admin_phones()
+    user_role = "admin" if formatted_phone in admin_phones else "user"
+    
+    # Create JWT token with role
+    access_token = create_access_token(data={
+        "sub": str(user.id),
+        "phone": formatted_phone,
+        "role": user_role
+    })
     
     return TokenResponse(
         access_token=access_token,
         token_type="bearer",
         user_id=user.id
+    )
+
+
+def get_token_payload(authorization: str = Header(None, alias="Authorization")):
+    """Extract and verify JWT token from Authorization header"""
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization header missing",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    scheme, token = authorization.split()
+    if scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication scheme",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    payload = verify_token(token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    return payload
+
+
+@router.get("/me", response_model=UserMeResponse)
+async def get_current_user_info(
+    payload: dict = Depends(get_token_payload)
+):
+    """
+    Get current user information from JWT token.
+    Returns user ID, phone, and role.
+    """
+    return UserMeResponse(
+        user_id=int(payload.get("sub")),
+        phone=payload.get("phone", ""),
+        role=payload.get("role", "user")
     )

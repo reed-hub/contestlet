@@ -23,7 +23,20 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379"
     
     # Admin settings
-    ADMIN_TOKEN: str = "contestlet-admin-super-secret-token-change-in-production"
+    ADMIN_TOKEN: str = "contestlet-admin-super-secret-token-change-in-production"  # Legacy support
+    ADMIN_PHONES: str = "+18187958204"  # Comma-separated list of admin phone numbers
+    
+    def get_admin_phones(self) -> set:
+        """Get set of normalized admin phone numbers"""
+        if not self.ADMIN_PHONES:
+            return set()
+        
+        admin_phones = set()
+        for phone in self.ADMIN_PHONES.split(','):
+            phone = phone.strip()
+            if phone:
+                admin_phones.add(phone)
+        return admin_phones
     
     class Config:
         env_file = ".env"
