@@ -313,6 +313,13 @@ async def select_winner(
     # Randomly select winner
     winner_entry = random.choice(entries)
     winner_entry.selected = True
+    winner_entry.status = "winner"
+    
+    # Update contest with winner information
+    contest.winner_entry_id = winner_entry.id
+    contest.winner_phone = winner_entry.user.phone
+    contest.winner_selected_at = datetime.utcnow()
+    
     db.commit()
     
     return WinnerSelectionResponse(

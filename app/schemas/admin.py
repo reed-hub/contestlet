@@ -53,6 +53,11 @@ class AdminContestResponse(BaseModel):
     official_rules: Optional[OfficialRulesResponse] = Field(None, description="Official contest rules")
     status: Optional[str] = Field(None, description="Contest status: active, inactive, ended, upcoming")
     
+    # Winner information
+    winner_entry_id: Optional[int] = Field(None, description="ID of winning entry")
+    winner_phone: Optional[str] = Field(None, description="Winner's phone number (masked)")
+    winner_selected_at: Optional[datetime] = Field(None, description="When winner was selected")
+    
     def __init__(self, **data):
         # Compute status before creating the object
         if 'status' not in data:
@@ -99,6 +104,7 @@ class AdminEntryResponse(BaseModel):
     phone_number: str = Field(..., description="User's phone number")
     created_at: datetime
     selected: bool = Field(default=False, description="Whether this entry was selected as winner")
+    status: str = Field(default="active", description="Entry status: active, winner, disqualified")
     
     class Config:
         from_attributes = True

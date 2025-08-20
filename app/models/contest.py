@@ -19,6 +19,11 @@ class Contest(Base):
     active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
+    # Winner tracking
+    winner_entry_id = Column(Integer, nullable=True)  # ID of winning entry
+    winner_phone = Column(String, nullable=True)  # Winner's phone number
+    winner_selected_at = Column(DateTime(timezone=True), nullable=True)  # When winner was selected
+    
     # Relationships
     entries = relationship("Entry", back_populates="contest")
     official_rules = relationship("OfficialRules", back_populates="contest", uselist=False)

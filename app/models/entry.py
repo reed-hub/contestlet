@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, DateTime, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, DateTime, Boolean, ForeignKey, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database.database import Base
@@ -12,6 +12,7 @@ class Entry(Base):
     contest_id = Column(Integer, ForeignKey("contests.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     selected = Column(Boolean, default=False)  # For marking winners
+    status = Column(String, default="active")  # Entry status: active, winner, disqualified
     
     # Relationships
     user = relationship("User", back_populates="entries")
