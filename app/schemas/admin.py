@@ -78,6 +78,29 @@ class AdminEntryResponse(BaseModel):
         from_attributes = True
 
 
+class WinnerNotificationRequest(BaseModel):
+    """Request to notify a contest winner via SMS"""
+    entry_id: int = Field(..., description="ID of the winning entry")
+    message: str = Field(..., min_length=1, max_length=1600, description="SMS message to send to winner")
+    
+    @validator('message')
+    def validate_message(cls, v):
+        if not v.strip():
+            raise ValueError('Message cannot be empty')
+        return v.strip()
+
+
+class WinnerNotificationResponse(BaseModel):
+    """Response from winner notification"""
+    success: bool = Field(..., description="Whether the notification was sent successfully")
+    message: str = Field(..., description="Status message")
+    entry_id: int = Field(..., description="ID of the entry that was notified")
+    contest_id: int = Field(..., description="ID of the contest")
+    winner_phone: str = Field(..., description="Phone number of the winner (masked for privacy)")
+    sms_status: str = Field(..., description="SMS delivery status")
+    notification_sent_at: datetime = Field(default_factory=datetime.utcnow, description="When the notification was sent")
+
+
 class AdminAuthResponse(BaseModel):
     """Response for admin authentication"""
     message: str

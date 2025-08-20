@@ -11,9 +11,9 @@ class Settings(BaseSettings):
     # Twilio settings
     TWILIO_ACCOUNT_SID: Optional[str] = None
     TWILIO_AUTH_TOKEN: Optional[str] = None
-    TWILIO_PHONE_NUMBER: Optional[str] = None  # Not needed for Verify API
+    TWILIO_PHONE_NUMBER: Optional[str] = None  # Required for SMS notifications
     TWILIO_VERIFY_SERVICE_SID: Optional[str] = None
-    USE_MOCK_SMS: bool = True  # Set to False to use real Twilio Verify
+    USE_MOCK_SMS: bool = True  # Set to False to use real Twilio services
     
     # Rate limiting
     RATE_LIMIT_REQUESTS: int = 5  # Max OTP requests per window

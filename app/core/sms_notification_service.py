@@ -1,0 +1,130 @@
+"""
+SMS Notification Service for Contestlet
+Handles sending SMS notifications to contest winners and other notifications.
+"""
+
+import logging
+from typing import Tuple, Optional
+from twilio.rest import Client
+from twilio.base.exceptions import TwilioException
+from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
+
+class SMSNotificationService:
+    """Service for sending SMS notifications via Twilio"""
+    
+    def __init__(self):
+        self.use_mock = settings.USE_MOCK_SMS
+        
+        if not self.use_mock:
+            if not all([settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN, settings.TWILIO_PHONE_NUMBER]):
+                logger.warning("Twilio credentials not configured. SMS notifications will use mock mode.")
+                self.use_mock = True
+            else:
+                try:
+                    self.client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+                    self.from_phone = settings.TWILIO_PHONE_NUMBER
+                    logger.info("SMS notification service initialized with Twilio")
+                except Exception as e:
+                    logger.error(f"Failed to initialize Twilio client: {e}")
+                    self.use_mock = True
+        
+        if self.use_mock:
+            logger.info("SMS notification service initialized in MOCK mode")
+    
+    async def send_notification(self, to_phone: str, message: str, notification_type: str = "general") -> Tuple[bool, str]:
+        """
+        Send SMS notification to a phone number
+        
+        Args:
+            to_phone: Recipient phone number (E.164 format)
+            message: SMS message content
+            notification_type: Type of notification (winner, reminder, etc.)
+        
+        Returns:
+            Tuple of (success: bool, message: str)
+        """
+        try:
+            if self.use_mock:
+                return await self._send_mock_notification(to_phone, message, notification_type)
+            else:
+                return await self._send_real_notification(to_phone, message, notification_type)
+        
+        except Exception as e:
+            logger.error(f"SMS notification error: {e}")
+            return False, f"SMS notification failed: {str(e)}"
+    
+    async def _send_mock_notification(self, to_phone: str, message: str, notification_type: str) -> Tuple[bool, str]:
+        """Send mock SMS notification (for development/testing)"""
+        masked_phone = f"{to_phone[:2]}***{to_phone[-4:]}" if len(to_phone) >= 6 else to_phone
+        
+        print(f"📱 MOCK SMS [{notification_type.upper()}] to {masked_phone}:")
+        print(f"   Message: {message}")
+        print(f"   Status: Delivered (mock)")
+        
+        logger.info(f"Mock SMS sent to {masked_phone}: {message[:50]}...")
+        
+        return True, f"SMS notification sent successfully (mock mode)"
+    
+    async def _send_real_notification(self, to_phone: str, message: str, notification_type: str) -> Tuple[bool, str]:
+        """Send real SMS notification via Twilio"""
+        try:
+            # Send SMS via Twilio
+            twilio_message = self.client.messages.create(
+                body=message,
+                from_=self.from_phone,
+                to=to_phone
+            )
+            
+            masked_phone = f"{to_phone[:2]}***{to_phone[-4:]}" if len(to_phone) >= 6 else to_phone
+            logger.info(f"SMS sent to {masked_phone} - SID: {twilio_message.sid}")
+            
+            return True, f"SMS notification sent successfully - SID: {twilio_message.sid}"
+        
+        except TwilioException as e:
+            logger.error(f"Twilio SMS error: {e}")
+            return False, f"SMS delivery failed: {str(e)}"
+        
+        except Exception as e:
+            logger.error(f"Unexpected SMS error: {e}")
+            return False, f"SMS notification failed: {str(e)}"
+    
+    async def send_winner_notification(self, winner_phone: str, contest_name: str, custom_message: Optional[str] = None) -> Tuple[bool, str]:
+        """
+        Send winner notification SMS
+        
+        Args:
+            winner_phone: Winner's phone number
+            contest_name: Name of the contest
+            custom_message: Optional custom message, otherwise uses default template
+        
+        Returns:
+            Tuple of (success: bool, message: str)
+        """
+        if custom_message:
+            message = custom_message
+        else:
+            message = f"🎉 Congratulations! You're the winner of '{contest_name}'! We'll contact you soon with details about claiming your prize."
+        
+        return await self.send_notification(winner_phone, message, "winner")
+    
+    async def send_contest_reminder(self, user_phone: str, contest_name: str, hours_remaining: int) -> Tuple[bool, str]:
+        """Send contest reminder SMS"""
+        message = f"⏰ Reminder: The '{contest_name}' contest ends in {hours_remaining} hours! Don't miss your chance to win."
+        
+        return await self.send_notification(user_phone, message, "reminder")
+    
+    def get_status(self) -> dict:
+        """Get SMS service status"""
+        return {
+            "service": "SMS Notification Service",
+            "mode": "mock" if self.use_mock else "production",
+            "twilio_configured": not self.use_mock,
+            "ready": True
+        }
+
+
+# Global instance
+sms_notification_service = SMSNotificationService()

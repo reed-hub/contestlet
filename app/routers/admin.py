@@ -11,9 +11,11 @@ from app.models.user import User
 from app.models.official_rules import OfficialRules
 from app.schemas.admin import (
     AdminContestCreate, AdminContestUpdate, AdminContestResponse, 
-    WinnerSelectionResponse, AdminAuthResponse, AdminEntryResponse
+    WinnerSelectionResponse, AdminAuthResponse, AdminEntryResponse,
+    WinnerNotificationRequest, WinnerNotificationResponse
 )
 from app.core.admin_auth import get_admin_user
+from app.core.sms_notification_service import sms_notification_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -303,4 +305,64 @@ async def select_winner(
         winner_entry_id=winner_entry.id,
         winner_user_phone=winner_entry.user.phone,
         total_entries=len(entries)
+    )
+
+
+@router.post("/contests/{contest_id}/notify-winner", response_model=WinnerNotificationResponse)
+async def notify_winner(
+    contest_id: int,
+    notification_request: WinnerNotificationRequest,
+    admin_user: dict = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Send SMS notification to a contest winner.
+    Notifies the specified entry winner via SMS with a custom message.
+    """
+    # Validate contest exists
+    contest = db.query(Contest).filter(Contest.id == contest_id).first()
+    if not contest:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Contest not found"
+        )
+    
+    # Validate entry exists and belongs to the contest
+    entry = db.query(Entry).options(joinedload(Entry.user)).filter(
+        Entry.id == notification_request.entry_id,
+        Entry.contest_id == contest_id
+    ).first()
+    
+    if not entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Entry not found for this contest"
+        )
+    
+    # Get winner's phone number
+    winner_phone = entry.user.phone
+    if not winner_phone:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Winner has no phone number on file"
+        )
+    
+    # Send SMS notification
+    success, sms_message = await sms_notification_service.send_notification(
+        to_phone=winner_phone,
+        message=notification_request.message,
+        notification_type="winner"
+    )
+    
+    # Mask phone number for privacy in response
+    masked_phone = f"{winner_phone[:2]}***{winner_phone[-4:]}" if len(winner_phone) >= 6 else winner_phone
+    
+    return WinnerNotificationResponse(
+        success=success,
+        message="Winner notification sent successfully" if success else "Failed to send winner notification",
+        entry_id=entry.id,
+        contest_id=contest_id,
+        winner_phone=masked_phone,
+        sms_status=sms_message,
+        notification_sent_at=datetime.utcnow()
     )
