@@ -141,3 +141,26 @@ class AdminAuthResponse(BaseModel):
     """Response for admin authentication"""
     message: str
     admin: bool = True
+
+
+class NotificationLogResponse(BaseModel):
+    """Response for notification logs"""
+    id: int
+    contest_id: int
+    user_id: int
+    entry_id: Optional[int]
+    message: str
+    notification_type: str
+    status: str
+    twilio_sid: Optional[str]
+    error_message: Optional[str]
+    test_mode: bool
+    sent_at: datetime
+    admin_user_id: Optional[str]
+    
+    # Related data
+    contest_name: Optional[str] = Field(None, description="Name of the related contest")
+    user_phone: Optional[str] = Field(None, description="Masked phone number of recipient")
+    
+    class Config:
+        from_attributes = True

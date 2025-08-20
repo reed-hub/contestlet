@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 import random
 from app.database.database import get_db
 from app.models.contest import Contest
@@ -12,7 +12,7 @@ from app.models.official_rules import OfficialRules
 from app.schemas.admin import (
     AdminContestCreate, AdminContestUpdate, AdminContestResponse, 
     WinnerSelectionResponse, AdminAuthResponse, AdminEntryResponse,
-    WinnerNotificationRequest, WinnerNotificationResponse
+    WinnerNotificationRequest, WinnerNotificationResponse, NotificationLogResponse
 )
 from app.core.admin_auth import get_admin_user
 from app.core.sms_notification_service import sms_notification_service
@@ -447,3 +447,61 @@ async def notify_winner(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"SMS notification failed: {str(e)}"
         )
+
+
+@router.get("/notifications", response_model=List[NotificationLogResponse])
+async def get_notification_logs(
+    contest_id: Optional[int] = None,
+    notification_type: Optional[str] = None,
+    limit: int = 50,
+    admin_user: dict = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get SMS notification logs for admin review.
+    
+    Provides comprehensive audit trail of all SMS notifications sent,
+    including winner notifications, reminders, and other communications.
+    """
+    # Build query
+    query = db.query(Notification).options(
+        joinedload(Notification.contest),
+        joinedload(Notification.user)
+    )
+    
+    # Apply filters
+    if contest_id:
+        query = query.filter(Notification.contest_id == contest_id)
+    
+    if notification_type:
+        query = query.filter(Notification.notification_type == notification_type)
+    
+    # Order by most recent first and limit results
+    notifications = query.order_by(Notification.sent_at.desc()).limit(limit).all()
+    
+    # Transform to response format with additional context
+    response_logs = []
+    for notification in notifications:
+        # Mask phone number for privacy
+        phone = notification.user.phone if notification.user else None
+        masked_phone = f"{phone[:2]}***{phone[-4:]}" if phone and len(phone) >= 6 else phone
+        
+        log_entry = NotificationLogResponse(
+            id=notification.id,
+            contest_id=notification.contest_id,
+            user_id=notification.user_id,
+            entry_id=notification.entry_id,
+            message=notification.message,
+            notification_type=notification.notification_type,
+            status=notification.status,
+            twilio_sid=notification.twilio_sid,
+            error_message=notification.error_message,
+            test_mode=notification.test_mode,
+            sent_at=notification.sent_at,
+            admin_user_id=notification.admin_user_id,
+            contest_name=notification.contest.name if notification.contest else None,
+            user_phone=masked_phone
+        )
+        response_logs.append(log_entry)
+    
+    return response_logs
