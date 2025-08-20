@@ -377,6 +377,70 @@ class AdminModule {
       method: 'POST',
     });
   }
+
+  /**
+   * Notify contest winner via SMS
+   * @param {number} contestId - Contest ID
+   * @param {number} entryId - Winner's entry ID  
+   * @param {string} message - Custom SMS message to send
+   * @returns {Promise<Object>} SMS notification result
+   */
+  async notifyWinner(contestId, entryId, message) {
+    return await this._adminRequest(`/admin/contests/${contestId}/notify-winner`, {
+      method: 'POST',
+      body: JSON.stringify({
+        entry_id: entryId,
+        message: message
+      }),
+    });
+  }
+
+  /**
+   * Select winner and optionally notify via SMS
+   * @param {number} contestId - Contest ID
+   * @param {string} [smsMessage] - Optional SMS message. If provided, winner will be notified
+   * @returns {Promise<Object>} Combined result of winner selection and optional SMS
+   */
+  async selectAndNotifyWinner(contestId, smsMessage = null) {
+    try {
+      // Step 1: Select winner
+      const winnerResult = await this.selectWinner(contestId);
+      
+      if (!winnerResult.success) {
+        return {
+          success: false,
+          stage: 'winner_selection',
+          error: winnerResult.message,
+        };
+      }
+
+      // Step 2: Send SMS if message provided
+      let smsResult = null;
+      if (smsMessage) {
+        smsResult = await this.notifyWinner(
+          contestId, 
+          winnerResult.winner_entry_id, 
+          smsMessage
+        );
+      }
+
+      return {
+        success: true,
+        winnerSelected: true,
+        smsNotified: smsResult ? smsResult.success : false,
+        winnerEntryId: winnerResult.winner_entry_id,
+        winnerPhone: winnerResult.winner_user_phone,
+        totalEntries: winnerResult.total_entries,
+        smsStatus: smsResult ? smsResult.sms_status : null,
+        smsResult: smsResult,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
 }
 
 // Utility functions
@@ -507,6 +571,30 @@ try {
     // Step 3: Admin operations now available
     const allContests = await contestlet.admin.getContests();
     const contestEntries = await contestlet.admin.getContestEntries(1);
+    
+    // Step 4: Winner selection and SMS notification
+    const winnerResult = await contestlet.admin.selectWinner(1);
+    if (winnerResult.success) {
+      console.log('Winner selected:', winnerResult.winner_entry_id);
+      
+      // Send SMS notification to winner
+      const smsResult = await contestlet.admin.notifyWinner(
+        1, 
+        winnerResult.winner_entry_id,
+        "🎉 Congratulations! You've won our amazing contest! We'll contact you soon with prize details."
+      );
+      
+      if (smsResult.success) {
+        console.log('SMS sent to winner:', smsResult.winner_phone);
+      }
+    }
+    
+    // Alternative: Select winner and notify in one call
+    const combinedResult = await contestlet.admin.selectAndNotifyWinner(
+      2, 
+      "🎊 You're our lucky winner! Check your email for next steps."
+    );
+    console.log('Winner selected and notified:', combinedResult.smsNotified);
     
     // Check current user info and role
     const userInfo = await contestlet.auth.getCurrentUser();

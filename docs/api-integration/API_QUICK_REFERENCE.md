@@ -159,6 +159,29 @@ POST /admin/contests/{contest_id}/select-winner
 Authorization: Bearer {admin_token}
 ```
 
+### Notify Winner via SMS
+```bash
+POST /admin/contests/{contest_id}/notify-winner
+Authorization: Bearer {admin_token}
+Content-Type: application/json
+
+{
+  "entry_id": 12,
+  "message": "🎉 Congrats! You're the winner of our Coca-Cola Summer Contest!"
+}
+
+# Response
+{
+  "success": true,
+  "message": "Winner notification sent successfully",
+  "entry_id": 12,
+  "contest_id": 1,
+  "winner_phone": "+1***8204",
+  "sms_status": "SMS notification sent successfully - SID: SM...",
+  "notification_sent_at": "2025-08-20T04:20:45.480744"
+}
+```
+
 ## 📊 Response Codes
 
 | Code | Meaning |
@@ -204,6 +227,17 @@ Authorization: Bearer contestlet-admin-super-secret-token-change-in-production
 ```env
 # Add admin phone numbers to .env
 ADMIN_PHONES=+18187958204,+15551234567
+```
+
+## 📱 SMS Notifications
+
+### Twilio Configuration (SMS)
+```env
+# Required for SMS notifications
+TWILIO_PHONE_NUMBER=+15551234567  # Your Twilio phone number
+TWILIO_ACCOUNT_SID=AC...           # Same as OTP verification
+TWILIO_AUTH_TOKEN=...              # Same as OTP verification
+USE_MOCK_SMS=true                  # Set to false for production SMS
 ```
 
 ## 📱 Phone Format (Twilio Verify)

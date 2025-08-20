@@ -533,6 +533,78 @@ if (winnerResult.success) {
 }
 ```
 
+#### Notify Winner via SMS
+```javascript
+async function notifyWinner(contestId, entryId, customMessage) {
+  try {
+    const notificationData = {
+      entry_id: entryId,
+      message: customMessage || "🎉 Congratulations! You're the winner! We'll contact you soon with details about claiming your prize."
+    };
+
+    const result = await adminAPI.request(`/admin/contests/${contestId}/notify-winner`, {
+      method: 'POST',
+      body: JSON.stringify(notificationData),
+    });
+    
+    return {
+      success: result.success,
+      message: result.message,
+      entryId: result.entry_id,
+      contestId: result.contest_id,
+      winnerPhone: result.winner_phone, // Masked for privacy
+      smsStatus: result.sms_status,
+      sentAt: result.notification_sent_at,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+}
+
+// Usage examples
+const smsResult = await notifyWinner(
+  1, 
+  12, 
+  "🎊 Amazing news! You've won our Summer Contest! Check your email for prize details."
+);
+
+if (smsResult.success) {
+  console.log(`SMS sent to winner: ${smsResult.winnerPhone}`);
+  console.log(`SMS status: ${smsResult.smsStatus}`);
+} else {
+  console.error('Failed to send SMS:', smsResult.error);
+}
+
+// Combined workflow: Select winner and notify
+async function selectAndNotifyWinner(contestId, customMessage) {
+  const winnerResult = await selectWinner(contestId);
+  
+  if (winnerResult.success) {
+    const smsResult = await notifyWinner(
+      contestId, 
+      winnerResult.winnerEntryId, 
+      customMessage
+    );
+    
+    return {
+      winnerSelected: true,
+      smsNotified: smsResult.success,
+      winnerEntryId: winnerResult.winnerEntryId,
+      winnerPhone: smsResult.winnerPhone,
+      smsStatus: smsResult.smsStatus,
+    };
+  }
+  
+  return {
+    winnerSelected: false,
+    error: winnerResult.error,
+  };
+}
+```
+
 ---
 
 ## ⚠️ Error Handling
