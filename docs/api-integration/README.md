@@ -11,6 +11,7 @@ Welcome to the Contestlet API integration documentation! This directory contains
 - 🚀 Quick start setup
 - 🔐 Complete Twilio Verify authentication flow
 - 📱 SMS-based OTP verification examples
+- 🛡️ OTP-based admin authentication
 - 📍 All API endpoints with examples
 - ⚠️ Comprehensive error handling
 - 💻 React, Vue.js, and vanilla JavaScript examples
@@ -45,10 +46,11 @@ Welcome to the Contestlet API integration documentation! This directory contains
 **Features:**
 - 🔐 Twilio Verify authentication flow demonstration
 - 📱 SMS OTP verification (real and mock modes)
+- 🛡️ OTP-based admin authentication demo
 - 🎯 Contest browsing and entry
 - 📍 Geolocation-based contest search
 - 👤 User entry management
-- 🛡️ Admin operations interface
+- 🔧 Admin operations interface
 - 📋 Real-time API response logging
 
 ---
@@ -90,6 +92,7 @@ Keep the [API Quick Reference](./API_QUICK_REFERENCE.md) handy for endpoint look
 1. **Authentication Setup**
    - Implement OTP request/verification flow
    - Set up token storage and management
+   - Configure admin phone numbers for admin access
    - Handle authentication errors
 
 2. **Contest Features**

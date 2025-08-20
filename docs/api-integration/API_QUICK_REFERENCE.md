@@ -34,13 +34,22 @@ Content-Type: application/json
   "code": "123456"  # 6-digit code from SMS (or 123456 in mock mode)
 }
 
-# Success Response
+# Success Response (Regular User)
 {
   "success": true,
   "message": "Phone verified successfully",
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "token_type": "bearer",
   "user_id": 2
+}
+
+# Success Response (Admin User)
+{
+  "success": true,
+  "message": "Phone verified successfully",
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",  # JWT includes role="admin"
+  "token_type": "bearer",
+  "user_id": 1
 }
 
 # Error Response
@@ -50,6 +59,28 @@ Content-Type: application/json
   "access_token": null,
   "token_type": "bearer",
   "user_id": null
+}
+```
+
+### Get Current User Info
+```bash
+GET /auth/me
+Authorization: Bearer <access_token>
+
+# Response (Regular User)
+{
+  "user_id": 2,
+  "phone": "+15551234567",
+  "role": "user",
+  "authenticated": true
+}
+
+# Response (Admin User)
+{
+  "user_id": 1,
+  "phone": "+18187958204",
+  "role": "admin",
+  "authenticated": true
 }
 ```
 
@@ -142,9 +173,37 @@ Authorization: Bearer {admin_token}
 | 429 | Rate Limited |
 | 500 | Server Error |
 
-## 🔑 Admin Token
+## 🔑 Admin Authentication
+
+### OTP-Based Admin Access (Recommended)
+```bash
+# 1. Request OTP with admin phone number
+POST /auth/request-otp
+{
+  "phone": "18187958204"  # Must be configured as admin phone
+}
+
+# 2. Verify OTP to get admin JWT
+POST /auth/verify-otp  
+{
+  "phone": "18187958204",
+  "code": "123456"
+}
+# Returns JWT with role="admin"
+
+# 3. Use admin JWT for all admin endpoints
+Authorization: Bearer <admin_jwt_token>
+```
+
+### Legacy Admin Token (Deprecated)
 ```
 Authorization: Bearer contestlet-admin-super-secret-token-change-in-production
+```
+
+### Configuration
+```env
+# Add admin phone numbers to .env
+ADMIN_PHONES=+18187958204,+15551234567
 ```
 
 ## 📱 Phone Format (Twilio Verify)

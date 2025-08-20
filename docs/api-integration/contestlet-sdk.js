@@ -189,6 +189,27 @@ class AuthModule {
     }
     return cleaned;
   }
+
+  /**
+   * Get current user information from JWT token
+   * @returns {Promise<{userId: number, phone: string, role: string, authenticated: boolean}>}
+   */
+  async getCurrentUser() {
+    return await this.sdk.request('/auth/me');
+  }
+
+  /**
+   * Check if current user has admin role
+   * @returns {Promise<boolean>}
+   */
+  async isAdmin() {
+    try {
+      const userInfo = await this.getCurrentUser();
+      return userInfo.role === 'admin';
+    } catch (error) {
+      return false;
+    }
+  }
 }
 
 // Contests module
@@ -264,6 +285,51 @@ class AdminModule {
 
   setAdminToken(adminToken) {
     this.adminToken = adminToken;
+  }
+
+  /**
+   * Authenticate admin using OTP and set admin token
+   * @param {string} adminPhone - Admin phone number
+   * @param {string} otpCode - OTP code from SMS
+   * @returns {Promise<{success: boolean, phone?: string, userId?: number, error?: string}>}
+   */
+  async authenticateWithOTP(adminPhone, otpCode) {
+    try {
+      // Verify OTP and get JWT token
+      const verifyResult = await this.sdk.auth.verifyOTP(adminPhone, otpCode);
+      
+      if (!verifyResult.success) {
+        return {
+          success: false,
+          error: verifyResult.message || 'OTP verification failed',
+        };
+      }
+
+      // Set the token for future admin requests
+      this.setAdminToken(verifyResult.token);
+      this.sdk.setToken(verifyResult.token);
+
+      // Check if user has admin role
+      const userInfo = await this.sdk.auth.getCurrentUser();
+      
+      if (userInfo.role !== 'admin') {
+        return {
+          success: false,
+          error: 'User does not have admin privileges',
+        };
+      }
+
+      return {
+        success: true,
+        phone: userInfo.phone,
+        userId: userInfo.userId,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
   }
 
   async _adminRequest(endpoint, options = {}) {
@@ -428,9 +494,35 @@ try {
   console.error('Contest error:', ContestletUtils.getErrorMessage(error));
 }
 
-// Admin operations
-const admin = contestlet.admin;
-admin.setAdminToken('your-admin-token');
+// Admin operations (OTP-based authentication)
+try {
+  // Step 1: Request OTP for admin phone
+  await contestlet.auth.requestOTP('18187958204'); // Admin phone
+  
+  // Step 2: Authenticate with OTP to get admin JWT
+  const adminAuth = await contestlet.admin.authenticateWithOTP('18187958204', '123456');
+  if (adminAuth.success) {
+    console.log('Admin authenticated:', adminAuth.phone);
+    
+    // Step 3: Admin operations now available
+    const allContests = await contestlet.admin.getContests();
+    const contestEntries = await contestlet.admin.getContestEntries(1);
+    
+    // Check current user info and role
+    const userInfo = await contestlet.auth.getCurrentUser();
+    console.log('Current user role:', userInfo.role); // "admin"
+    
+    const isAdmin = await contestlet.auth.isAdmin();
+    console.log('Is admin:', isAdmin); // true
+  } else {
+    console.error('Admin auth failed:', adminAuth.error);
+  }
+} catch (error) {
+  console.error('Admin error:', ContestletUtils.getErrorMessage(error));
+}
+
+// Legacy admin token (deprecated)
+// admin.setAdminToken('your-admin-token');
 
 try {
   const contests = await admin.getContests();

@@ -139,17 +139,35 @@
         
         <div class="container">
             <h2>🛡️ Admin Operations</h2>
-            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 12px; border-radius: 4px; margin-bottom: 16px;">
-                <strong>⚠️ Admin Token Required:</strong> These operations require the admin bearer token.
+            <div style="background: #e3f2fd; border: 1px solid #2196f3; padding: 12px; border-radius: 4px; margin-bottom: 16px;">
+                <strong>🔐 Admin Authentication:</strong> Use OTP-based authentication for secure admin access.
             </div>
             
-            <input type="text" id="admin-token" placeholder="Admin Token" value="contestlet-admin-super-secret-token-change-in-production" style="width: 400px;">
-            <button onclick="setAdminToken()">Set Admin Token</button>
-            <br><br>
+            <!-- OTP-based Admin Authentication -->
+            <div id="admin-otp-form">
+                <h3>📱 Admin OTP Authentication (Recommended)</h3>
+                <input type="tel" id="admin-phone" placeholder="Admin Phone" value="18187958204" style="width: 200px;">
+                <button onclick="requestAdminOTP()">Request OTP</button>
+                <br><br>
+                <input type="text" id="admin-otp-code" placeholder="OTP Code" value="123456" style="width: 120px;" maxlength="6">
+                <button onclick="authenticateAdmin()" id="admin-auth-btn">Authenticate Admin</button>
+                <div id="admin-auth-message"></div>
+                <br>
+            </div>
+            
+            <!-- Legacy Admin Token (Deprecated) -->
+            <details style="margin: 16px 0;">
+                <summary style="cursor: pointer; color: #666;">🚨 Legacy Admin Token (Deprecated)</summary>
+                <div style="margin-top: 8px; padding: 12px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;">
+                    <input type="text" id="admin-token" placeholder="Legacy Admin Token" value="contestlet-admin-super-secret-token-change-in-production" style="width: 400px;">
+                    <button onclick="setAdminToken()">Set Legacy Token</button>
+                </div>
+            </details>
             
             <button onclick="loadAllContests()" id="admin-contests-btn" disabled>View All Contests</button>
             <button onclick="loadContestEntries()" id="admin-entries-btn" disabled>View Contest Entries</button>
             <input type="number" id="contest-id-input" placeholder="Contest ID" min="1" style="width: 100px; margin-left: 8px;">
+            <button onclick="checkAdminStatus()" id="admin-status-btn" disabled>Check Admin Status</button>
             
             <div id="admin-container"></div>
         </div>
@@ -192,6 +210,16 @@
         function showMessage(elementId, message, isError = false) {
             const element = document.getElementById(elementId);
             element.innerHTML = `<span class="${isError ? 'error' : 'success'}">${message}</span>`;
+        }
+        
+        function showAdminMessage(message) {
+            const element = document.getElementById('admin-auth-message');
+            element.innerHTML = `<span class="success">${message}</span>`;
+        }
+        
+        function showAdminError(message) {
+            const element = document.getElementById('admin-auth-message');
+            element.innerHTML = `<span class="error">${message}</span>`;
         }
         
         function showAuthenticated() {
@@ -457,6 +485,75 @@
         }
         
         // Admin functions
+        async function requestAdminOTP() {
+            const phone = document.getElementById('admin-phone').value;
+            if (!phone) {
+                alert('Please enter admin phone number');
+                return;
+            }
+            
+            try {
+                log('Requesting admin OTP...', { phone });
+                const result = await contestlet.auth.requestOTP(phone);
+                
+                log('Admin OTP Request Result', result);
+                if (result.success) {
+                    showAdminMessage('✅ Admin OTP sent! Check your phone.');
+                } else {
+                    showAdminError(result.message || 'Failed to send OTP');
+                }
+            } catch (error) {
+                log('Admin OTP Request Error', error);
+                showAdminError(ContestletUtils.getErrorMessage(error));
+            }
+        }
+        
+        async function authenticateAdmin() {
+            const phone = document.getElementById('admin-phone').value;
+            const code = document.getElementById('admin-otp-code').value;
+            
+            if (!phone || !code) {
+                alert('Please enter admin phone and OTP code');
+                return;
+            }
+            
+            try {
+                log('Authenticating admin with OTP...', { phone, code });
+                const result = await contestlet.admin.authenticateWithOTP(phone, code);
+                
+                log('Admin Authentication Result', result);
+                if (result.success) {
+                    enableAdminButtons();
+                    showAdminMessage(`✅ Admin authenticated: ${result.phone}`);
+                } else {
+                    showAdminError(result.error || 'Admin authentication failed');
+                }
+            } catch (error) {
+                log('Admin Authentication Error', error);
+                showAdminError(ContestletUtils.getErrorMessage(error));
+            }
+        }
+        
+        async function checkAdminStatus() {
+            try {
+                log('Checking admin status...');
+                const userInfo = await contestlet.auth.getCurrentUser();
+                const isAdmin = await contestlet.auth.isAdmin();
+                
+                log('Admin Status Result', { userInfo, isAdmin });
+                showAdminMessage(`📋 User: ${userInfo.phone} | Role: ${userInfo.role} | Admin: ${isAdmin}`);
+            } catch (error) {
+                log('Admin Status Error', error);
+                showAdminError(ContestletUtils.getErrorMessage(error));
+            }
+        }
+        
+        function enableAdminButtons() {
+            document.getElementById('admin-contests-btn').disabled = false;
+            document.getElementById('admin-entries-btn').disabled = false;
+            document.getElementById('admin-status-btn').disabled = false;
+        }
+        
         function setAdminToken() {
             const token = document.getElementById('admin-token').value;
             if (!token) {
@@ -465,11 +562,10 @@
             }
             
             contestlet.admin.setAdminToken(token);
-            document.getElementById('admin-contests-btn').disabled = false;
-            document.getElementById('admin-entries-btn').disabled = false;
+            enableAdminButtons();
             
-            log('Admin token set');
-            showAdminMessage('✅ Admin token configured');
+            log('Legacy admin token set');
+            showAdminMessage('✅ Legacy admin token configured');
         }
         
         async function loadAllContests() {

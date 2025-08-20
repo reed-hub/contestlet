@@ -328,6 +328,70 @@ console.log(`User has entered ${userEntries.length} contests`);
 For admin users managing contests and viewing entries, additional endpoints are available that require admin authentication.
 
 #### Admin Authentication Setup
+
+##### Option 1: OTP-Based Admin Authentication (Recommended)
+```javascript
+// Admin authentication using OTP
+async function authenticateAdmin(adminPhone, otpCode) {
+  try {
+    // Step 1: Request OTP (if needed)
+    const otpResponse = await fetch('http://localhost:8000/auth/request-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: adminPhone }),
+    });
+
+    // Step 2: Verify OTP and get admin JWT
+    const verifyResponse = await fetch('http://localhost:8000/auth/verify-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: adminPhone, code: otpCode }),
+    });
+
+    const result = await verifyResponse.json();
+    
+    if (result.success) {
+      // Check if user has admin role
+      const userInfo = await fetch('http://localhost:8000/auth/me', {
+        headers: { 'Authorization': `Bearer ${result.access_token}` },
+      });
+      const userData = await userInfo.json();
+      
+      if (userData.role === 'admin') {
+        return {
+          success: true,
+          adminToken: result.access_token,
+          userId: result.user_id,
+          phone: userData.phone,
+        };
+      } else {
+        throw new Error('User does not have admin privileges');
+      }
+    } else {
+      throw new Error(result.message);
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+}
+
+// Usage example
+const adminAuth = await authenticateAdmin('18187958204', '123456');
+if (adminAuth.success) {
+  console.log('Admin authenticated:', adminAuth.phone);
+  // Use adminAuth.adminToken for admin API calls
+}
+```
+
+##### Option 2: Legacy Admin Token (Deprecated)
+```javascript
+const adminToken = 'contestlet-admin-super-secret-token-change-in-production';
+```
+
+#### Admin API Client
 ```javascript
 // Set up admin API client
 class AdminAPI {
@@ -357,9 +421,8 @@ class AdminAPI {
   }
 }
 
-// Initialize admin client
-const adminToken = 'contestlet-admin-super-secret-token-change-in-production';
-const adminAPI = new AdminAPI('http://localhost:8000', adminToken);
+// Initialize admin client with OTP-based token
+const adminAPI = new AdminAPI('http://localhost:8000', adminAuth.adminToken);
 ```
 
 #### View Contest Entries
