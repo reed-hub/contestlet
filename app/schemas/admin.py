@@ -65,6 +65,19 @@ class WinnerSelectionResponse(BaseModel):
     total_entries: int
 
 
+class AdminEntryResponse(BaseModel):
+    """Admin response for contest entries with user details"""
+    id: int
+    contest_id: int
+    user_id: int
+    phone_number: str = Field(..., description="User's phone number")
+    created_at: datetime
+    selected: bool = Field(default=False, description="Whether this entry was selected as winner")
+    
+    class Config:
+        from_attributes = True
+
+
 class AdminAuthResponse(BaseModel):
     """Response for admin authentication"""
     message: str

@@ -11,7 +11,7 @@ from app.models.user import User
 from app.models.official_rules import OfficialRules
 from app.schemas.admin import (
     AdminContestCreate, AdminContestUpdate, AdminContestResponse, 
-    WinnerSelectionResponse, AdminAuthResponse
+    WinnerSelectionResponse, AdminAuthResponse, AdminEntryResponse
 )
 from app.core.admin_auth import get_admin_user
 
@@ -200,6 +200,45 @@ async def list_contests(
         response_list.append(AdminContestResponse(**response_data))
     
     return response_list
+
+
+@router.get("/contests/{contest_id}/entries", response_model=List[AdminEntryResponse])
+async def get_contest_entries(
+    contest_id: int,
+    admin_user: dict = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all entries for a specific contest.
+    Returns user details including phone numbers for admin review.
+    """
+    # Validate that the contest exists
+    contest = db.query(Contest).filter(Contest.id == contest_id).first()
+    if not contest:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Contest not found"
+        )
+    
+    # Get all entries for this contest with user details
+    entries = db.query(Entry).options(joinedload(Entry.user)).filter(
+        Entry.contest_id == contest_id
+    ).order_by(Entry.created_at.desc()).all()
+    
+    # Transform to admin response format with phone numbers
+    admin_entries = []
+    for entry in entries:
+        admin_entry = AdminEntryResponse(
+            id=entry.id,
+            contest_id=entry.contest_id,
+            user_id=entry.user_id,
+            phone_number=entry.user.phone,
+            created_at=entry.created_at,
+            selected=entry.selected
+        )
+        admin_entries.append(admin_entry)
+    
+    return admin_entries
 
 
 @router.post("/contests/{contest_id}/select-winner", response_model=WinnerSelectionResponse)
