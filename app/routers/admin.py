@@ -252,7 +252,8 @@ async def get_contest_entries(
             user_id=entry.user_id,
             phone_number=entry.user.phone,
             created_at=entry.created_at,
-            selected=entry.selected
+            selected=entry.selected,
+            status=entry.status
         )
         admin_entries.append(admin_entry)
     
