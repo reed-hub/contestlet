@@ -278,6 +278,10 @@ class AdminModule {
     });
   }
 
+  async getContestEntries(contestId) {
+    return await this._adminRequest(`/admin/contests/${contestId}/entries`);
+  }
+
   async selectWinner(contestId) {
     return await this._adminRequest(`/admin/contests/${contestId}/select-winner`, {
       method: 'POST',
@@ -393,6 +397,7 @@ admin.setAdminToken('your-admin-token');
 
 try {
   const contests = await admin.getContests();
+  const entries = await admin.getContestEntries(1);  // Get entries for contest 1
   const winner = await admin.selectWinner(1);
 } catch (error) {
   console.error('Admin error:', ContestletUtils.getErrorMessage(error));

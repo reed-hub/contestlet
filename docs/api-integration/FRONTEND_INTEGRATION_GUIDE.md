@@ -274,6 +274,153 @@ const userEntries = await getUserEntries();
 console.log(`User has entered ${userEntries.length} contests`);
 ```
 
+### Admin Operations
+
+For admin users managing contests and viewing entries, additional endpoints are available that require admin authentication.
+
+#### Admin Authentication Setup
+```javascript
+// Set up admin API client
+class AdminAPI {
+  constructor(baseURL = 'http://localhost:8000', adminToken) {
+    this.baseURL = baseURL;
+    this.adminToken = adminToken;
+  }
+
+  async request(endpoint, options = {}) {
+    const url = `${this.baseURL}${endpoint}`;
+    const config = {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.adminToken}`,
+        ...options.headers,
+      },
+      ...options,
+    };
+
+    const response = await fetch(url, config);
+    
+    if (!response.ok) {
+      throw new Error(`Admin API Error: ${response.status} ${response.statusText}`);
+    }
+    
+    return response.json();
+  }
+}
+
+// Initialize admin client
+const adminToken = 'contestlet-admin-super-secret-token-change-in-production';
+const adminAPI = new AdminAPI('http://localhost:8000', adminToken);
+```
+
+#### View Contest Entries
+```javascript
+async function getContestEntries(contestId) {
+  try {
+    const entries = await adminAPI.request(`/admin/contests/${contestId}/entries`);
+    
+    return {
+      success: true,
+      entries: entries,
+      count: entries.length,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+}
+
+// Usage
+const result = await getContestEntries(1);
+if (result.success) {
+  console.log(`Found ${result.count} entries for contest`);
+  result.entries.forEach(entry => {
+    console.log(`Entry ${entry.id}: User ${entry.user_id} (${entry.phone_number})`);
+  });
+} else {
+  console.error('Failed to get entries:', result.error);
+}
+```
+
+#### Create Contest
+```javascript
+async function createContest(contestData) {
+  const fullContestData = {
+    name: contestData.name,
+    description: contestData.description,
+    location: contestData.location,
+    latitude: contestData.latitude,
+    longitude: contestData.longitude,
+    start_time: contestData.start_time,
+    end_time: contestData.end_time,
+    prize_description: contestData.prize_description,
+    active: contestData.active,
+    official_rules: {
+      eligibility_text: "Must be 18+ and US resident",
+      sponsor_name: "Your Company",
+      start_date: contestData.start_time,
+      end_date: contestData.end_time,
+      prize_value_usd: contestData.prize_value,
+      terms_url: "https://yoursite.com/terms"
+    }
+  };
+
+  return await adminAPI.request('/admin/contests', {
+    method: 'POST',
+    body: JSON.stringify(fullContestData),
+  });
+}
+
+// Usage
+const newContest = await createContest({
+  name: "Summer Giveaway",
+  description: "Win amazing prizes this summer!",
+  location: "San Francisco, CA",
+  latitude: 37.7749,
+  longitude: -122.4194,
+  start_time: "2025-08-20T10:00:00",
+  end_time: "2025-08-27T10:00:00",
+  prize_description: "$1000 Cash Prize",
+  prize_value: 1000.0,
+  active: true
+});
+```
+
+#### Select Contest Winner
+```javascript
+async function selectWinner(contestId) {
+  try {
+    const result = await adminAPI.request(`/admin/contests/${contestId}/select-winner`, {
+      method: 'POST',
+    });
+    
+    return {
+      success: result.success,
+      message: result.message,
+      winnerEntryId: result.winner_entry_id,
+      winnerPhone: result.winner_user_phone,
+      totalEntries: result.total_entries,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+}
+
+// Usage
+const winnerResult = await selectWinner(1);
+if (winnerResult.success) {
+  console.log(`Winner selected! Entry ID: ${winnerResult.winnerEntryId}`);
+  console.log(`Winner phone: ${winnerResult.winnerPhone}`);
+} else {
+  console.error('Winner selection failed:', winnerResult.error);
+}
+```
+
 ---
 
 ## ⚠️ Error Handling
@@ -710,6 +857,15 @@ export interface OTPVerificationResponse {
   access_token?: string;
   token_type: string;
   user_id?: number;
+}
+
+export interface AdminEntryResponse {
+  id: number;
+  contest_id: number;
+  user_id: number;
+  phone_number: string;
+  created_at: string;
+  selected: boolean;
 }
 ```
 

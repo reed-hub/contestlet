@@ -82,6 +82,12 @@ Content-Type: application/json
 }
 ```
 
+### View Contest Entries
+```bash
+GET /admin/contests/{contest_id}/entries
+Authorization: Bearer {admin_token}
+```
+
 ### Select Winner
 ```bash
 POST /admin/contests/{contest_id}/select-winner

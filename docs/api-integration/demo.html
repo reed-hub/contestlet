@@ -132,6 +132,23 @@
         </div>
         
         <div class="container">
+            <h2>🛡️ Admin Operations</h2>
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 12px; border-radius: 4px; margin-bottom: 16px;">
+                <strong>⚠️ Admin Token Required:</strong> These operations require the admin bearer token.
+            </div>
+            
+            <input type="text" id="admin-token" placeholder="Admin Token" value="contestlet-admin-super-secret-token-change-in-production" style="width: 400px;">
+            <button onclick="setAdminToken()">Set Admin Token</button>
+            <br><br>
+            
+            <button onclick="loadAllContests()" id="admin-contests-btn" disabled>View All Contests</button>
+            <button onclick="loadContestEntries()" id="admin-entries-btn" disabled>View Contest Entries</button>
+            <input type="number" id="contest-id-input" placeholder="Contest ID" min="1" style="width: 100px; margin-left: 8px;">
+            
+            <div id="admin-container"></div>
+        </div>
+        
+        <div class="container">
             <h2>📋 API Response Log</h2>
             <button onclick="clearLog()">Clear Log</button>
             <pre id="api-log"></pre>
@@ -430,6 +447,131 @@
         
         function showContestError(message) {
             const container = document.getElementById('contests-container');
+            container.innerHTML = `<div class="error">${message}</div>` + container.innerHTML;
+        }
+        
+        // Admin functions
+        function setAdminToken() {
+            const token = document.getElementById('admin-token').value;
+            if (!token) {
+                alert('Please enter an admin token');
+                return;
+            }
+            
+            contestlet.admin.setAdminToken(token);
+            document.getElementById('admin-contests-btn').disabled = false;
+            document.getElementById('admin-entries-btn').disabled = false;
+            
+            log('Admin token set');
+            showAdminMessage('✅ Admin token configured');
+        }
+        
+        async function loadAllContests() {
+            try {
+                log('Loading all contests (admin)...');
+                const contests = await contestlet.admin.getContests();
+                
+                log('Admin Contests Result', contests);
+                displayAdminContests(contests);
+                
+            } catch (error) {
+                log('Load Admin Contests Error', error);
+                showAdminError(ContestletUtils.getErrorMessage(error));
+            }
+        }
+        
+        async function loadContestEntries() {
+            const contestId = document.getElementById('contest-id-input').value;
+            if (!contestId) {
+                alert('Please enter a Contest ID');
+                return;
+            }
+            
+            try {
+                log('Loading contest entries (admin)...', { contestId });
+                const entries = await contestlet.admin.getContestEntries(parseInt(contestId));
+                
+                log('Admin Contest Entries Result', entries);
+                displayContestEntries(entries, contestId);
+                
+            } catch (error) {
+                log('Load Contest Entries Error', error);
+                showAdminError(ContestletUtils.getErrorMessage(error));
+            }
+        }
+        
+        function displayAdminContests(contests) {
+            const container = document.getElementById('admin-container');
+            
+            if (contests.length === 0) {
+                container.innerHTML = '<h3>Admin Contests</h3><p>No contests found.</p>';
+                return;
+            }
+            
+            let html = `<h3>Admin Contests (${contests.length})</h3>`;
+            
+            contests.forEach(contest => {
+                const status = ContestletUtils.getContestStatus(contest);
+                
+                html += `
+                    <div class="contest-card">
+                        <h4>
+                            <span class="status-indicator status-${status}"></span>
+                            ${contest.name} (ID: ${contest.id})
+                        </h4>
+                        <p>${contest.description || 'No description available'}</p>
+                        <p><strong>Entries:</strong> ${contest.entry_count}</p>
+                        <p><strong>Location:</strong> ${contest.location || 'Not specified'}</p>
+                        <p><strong>Duration:</strong> ${ContestletUtils.formatDateTime(contest.start_time)} - ${ContestletUtils.formatDateTime(contest.end_time)}</p>
+                        <p><strong>Active:</strong> ${contest.active ? 'Yes' : 'No'}</p>
+                        <button onclick="loadSpecificContestEntries(${contest.id})">View Entries (${contest.entry_count})</button>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function displayContestEntries(entries, contestId) {
+            const container = document.getElementById('admin-container');
+            
+            if (entries.length === 0) {
+                container.innerHTML = `<h3>Contest ${contestId} Entries</h3><p>No entries found for this contest.</p>`;
+                return;
+            }
+            
+            let html = `<h3>Contest ${contestId} Entries (${entries.length})</h3>`;
+            
+            entries.forEach((entry, index) => {
+                html += `
+                    <div class="contest-card">
+                        <h4>
+                            Entry #${index + 1} (ID: ${entry.id})
+                            ${entry.selected ? ' 🏆 WINNER!' : ''}
+                        </h4>
+                        <p><strong>User ID:</strong> ${entry.user_id}</p>
+                        <p><strong>Phone:</strong> ${entry.phone_number}</p>
+                        <p><strong>Created:</strong> ${ContestletUtils.formatDateTime(entry.created_at)}</p>
+                        <p><strong>Status:</strong> ${entry.selected ? 'Winner Selected' : 'Regular Entry'}</p>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        async function loadSpecificContestEntries(contestId) {
+            document.getElementById('contest-id-input').value = contestId;
+            await loadContestEntries();
+        }
+        
+        function showAdminMessage(message) {
+            const container = document.getElementById('admin-container');
+            container.innerHTML = `<div class="success">${message}</div>` + container.innerHTML;
+        }
+        
+        function showAdminError(message) {
+            const container = document.getElementById('admin-container');
             container.innerHTML = `<div class="error">${message}</div>` + container.innerHTML;
         }
         
