@@ -762,6 +762,36 @@ class AdminModule {
       };
     }
   }
+
+  /**
+   * Delete contest with comprehensive cleanup
+   * @param {number} contestId - Contest ID to delete
+   * @returns {Promise<Object>} Deletion result with cleanup summary
+   */
+  async deleteContest(contestId) {
+    try {
+      const result = await this._adminRequest(`/admin/contests/${contestId}`, {
+        method: 'DELETE',
+      });
+      
+      return {
+        success: result.status === 'success',
+        message: result.message,
+        deletedContestId: result.deleted_contest_id,
+        cleanupSummary: {
+          entriesDeleted: result.cleanup_summary.entries_deleted,
+          notificationsDeleted: result.cleanup_summary.notifications_deleted,
+          officialRulesDeleted: result.cleanup_summary.official_rules_deleted,
+          dependenciesCleared: result.cleanup_summary.dependencies_cleared,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
 }
 
 // Utility functions

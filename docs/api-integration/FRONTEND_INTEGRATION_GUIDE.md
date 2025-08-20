@@ -1029,6 +1029,94 @@ async function selectAndNotifyWinner(contestId, customMessage) {
 }
 ```
 
+#### Contest Deletion with Complete Cleanup
+```javascript
+// Delete contest with comprehensive cleanup
+async function deleteContest(contestId) {
+  const response = await adminAPI.request(`/admin/contests/${contestId}`, {
+    method: 'DELETE'
+  });
+  
+  if (response.status === 'success') {
+    console.log(`Contest ${response.deleted_contest_id} deleted successfully`);
+    console.log(`Cleanup: ${response.cleanup_summary.dependencies_cleared} records removed`);
+    return response;
+  }
+  
+  throw new Error(response.message || 'Failed to delete contest');
+}
+
+// React component with confirmation modal
+function DeleteContestButton({ contest, onDeleted }) {
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      const result = await deleteContest(contest.id);
+      
+      // Show success message with cleanup details
+      alert(`Contest deleted successfully!\n` +
+            `- ${result.cleanup_summary.entries_deleted} entries removed\n` +
+            `- ${result.cleanup_summary.notifications_deleted} notifications removed\n` +
+            `- ${result.cleanup_summary.dependencies_cleared} total records cleaned`);
+      
+      onDeleted(contest.id);
+      setShowConfirm(false);
+    } catch (error) {
+      alert(`Failed to delete contest: ${error.message}`);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <>
+      <button 
+        onClick={() => setShowConfirm(true)}
+        className="btn-danger"
+        disabled={deleting}
+      >
+        🗑️ Delete Contest
+      </button>
+
+      {showConfirm && (
+        <div className="confirmation-modal">
+          <div className="modal-content">
+            <h3>⚠️ Delete Contest: {contest.name}?</h3>
+            <p><strong>This action cannot be undone!</strong></p>
+            <p>This will permanently delete:</p>
+            <ul>
+              <li>All contest entries ({contest.entry_count})</li>
+              <li>All SMS notifications</li>
+              <li>Official rules and metadata</li>
+              <li>Winner records and history</li>
+            </ul>
+            
+            <div className="modal-actions">
+              <button 
+                onClick={handleDelete}
+                disabled={deleting}
+                className="btn-danger"
+              >
+                {deleting ? 'Deleting...' : 'Yes, Delete Forever'}
+              </button>
+              <button 
+                onClick={() => setShowConfirm(false)}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+```
+
 #### View SMS Notification Logs
 ```javascript
 async function getNotificationLogs(contestId = null, notificationType = null, limit = 50) {

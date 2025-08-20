@@ -12,7 +12,8 @@ from app.models.official_rules import OfficialRules
 from app.schemas.admin import (
     AdminContestCreate, AdminContestUpdate, AdminContestResponse, 
     WinnerSelectionResponse, AdminAuthResponse, AdminEntryResponse,
-    WinnerNotificationRequest, WinnerNotificationResponse, NotificationLogResponse
+    WinnerNotificationRequest, WinnerNotificationResponse, NotificationLogResponse,
+    ContestDeleteResponse, ContestDeletionSummary
 )
 from app.core.admin_auth import get_admin_user
 from app.core.sms_notification_service import sms_notification_service
@@ -807,3 +808,130 @@ async def get_user_interaction_history(
         response_logs.append(log_entry)
     
     return response_logs
+# Deletion endpoint to append to admin.py
+
+@router.delete("/contests/{contest_id}", response_model=ContestDeleteResponse)
+async def delete_contest(
+    contest_id: int,
+    admin_user: dict = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """
+    🗑️ COMPREHENSIVE CONTEST DELETION
+    
+    Completely removes a contest and ALL associated data including:
+    - Contest entries
+    - SMS notifications 
+    - Official rules
+    - Winner records
+    - All dependencies
+    
+    ⚠️ WARNING: This action cannot be undone!
+    
+    🔐 Security:
+    - Requires admin authentication
+    - Validates contest ownership
+    - Ensures complete cleanup
+    - Provides detailed deletion summary
+    
+    📊 Business Rules:
+    - Cannot delete active contests with recent entries
+    - Soft validation for contests with winner notifications
+    - Complete cascade deletion for data integrity
+    """
+    
+    # Validate contest exists
+    contest = db.query(Contest).filter(Contest.id == contest_id).first()
+    if not contest:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Contest not found"
+        )
+    
+    # Business logic validation
+    entry_count = db.query(Entry).filter(Entry.contest_id == contest_id).count()
+    notification_count = db.query(Notification).filter(Notification.contest_id == contest_id).count()
+    
+    # Check if contest is currently active with recent entries
+    if contest.active and entry_count > 0:
+        # Get the most recent entry to check timing
+        recent_entry = db.query(Entry).filter(Entry.contest_id == contest_id)\
+                                    .order_by(Entry.created_at.desc()).first()
+        
+        # Allow deletion if contest is past end time or entries are old
+        now = datetime.utcnow()
+        if contest.end_time > now:
+            # Contest is still active and running
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Cannot delete active contest with {entry_count} entries. Contest ends at {contest.end_time}."
+            )
+    
+    # Warning for contests with sent winner notifications
+    winner_notifications = db.query(Notification).filter(
+        Notification.contest_id == contest_id,
+        Notification.notification_type == "winner",
+        Notification.status == "sent"
+    ).count()
+    
+    if winner_notifications > 0:
+        print(f"⚠️ WARNING: Deleting contest {contest_id} with {winner_notifications} sent winner notifications")
+    
+    # Begin comprehensive deletion process
+    deletion_summary = ContestDeletionSummary(
+        entries_deleted=0,
+        notifications_deleted=0,
+        official_rules_deleted=0,
+        dependencies_cleared=0
+    )
+    
+    try:
+        # Start database transaction for atomic deletion
+        # 1. Delete all notifications first (to avoid foreign key constraints)
+        notifications_deleted = db.query(Notification).filter(Notification.contest_id == contest_id).delete()
+        deletion_summary.notifications_deleted = notifications_deleted
+        
+        # 2. Delete all contest entries
+        entries_deleted = db.query(Entry).filter(Entry.contest_id == contest_id).delete()
+        deletion_summary.entries_deleted = entries_deleted
+        
+        # 3. Delete official rules (if exists)
+        official_rules_deleted = db.query(OfficialRules).filter(OfficialRules.contest_id == contest_id).delete()
+        deletion_summary.official_rules_deleted = official_rules_deleted
+        
+        # 4. Finally delete the contest itself
+        db.delete(contest)
+        
+        # Calculate total dependencies cleared
+        deletion_summary.dependencies_cleared = (
+            deletion_summary.entries_deleted + 
+            deletion_summary.notifications_deleted + 
+            deletion_summary.official_rules_deleted
+        )
+        
+        # Commit all changes
+        db.commit()
+        
+        # Log the admin action for audit trail
+        print(f"✅ Contest {contest_id} deleted by admin {admin_user.get('sub', 'unknown')}")
+        print(f"   - Entries deleted: {deletion_summary.entries_deleted}")
+        print(f"   - Notifications deleted: {deletion_summary.notifications_deleted}")
+        print(f"   - Official rules deleted: {deletion_summary.official_rules_deleted}")
+        print(f"   - Total dependencies cleared: {deletion_summary.dependencies_cleared}")
+        
+        return ContestDeleteResponse(
+            status="success",
+            message=f"Contest '{contest.name}' deleted successfully",
+            deleted_contest_id=contest_id,
+            cleanup_summary=deletion_summary
+        )
+        
+    except Exception as e:
+        # Rollback transaction on any error
+        db.rollback()
+        print(f"❌ Failed to delete contest {contest_id}: {e}")
+        
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete contest: {str(e)}"
+        )

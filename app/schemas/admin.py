@@ -168,3 +168,19 @@ class NotificationLogResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+class ContestDeletionSummary(BaseModel):
+    """Summary of what was deleted during contest deletion"""
+    entries_deleted: int = Field(..., description="Number of contest entries deleted")
+    notifications_deleted: int = Field(..., description="Number of SMS notifications deleted")
+    official_rules_deleted: int = Field(..., description="Number of official rules deleted (0 or 1)")
+    dependencies_cleared: int = Field(..., description="Total number of dependent records cleared")
+
+
+class ContestDeleteResponse(BaseModel):
+    """Response for successful contest deletion"""
+    status: str = Field("success", description="Operation status")
+    message: str = Field(..., description="Human-readable success message")
+    deleted_contest_id: int = Field(..., description="ID of the deleted contest")
+    cleanup_summary: ContestDeletionSummary = Field(..., description="Summary of cleanup actions performed")

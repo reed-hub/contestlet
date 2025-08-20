@@ -147,6 +147,41 @@ Content-Type: application/json
 }
 ```
 
+### Delete Contest
+```bash
+DELETE /admin/contests/{contest_id}
+Authorization: Bearer {admin_token}
+
+# Success Response (200)
+{
+  "status": "success",
+  "message": "Contest 'Summer Giveaway' deleted successfully",
+  "deleted_contest_id": 123,
+  "cleanup_summary": {
+    "entries_deleted": 45,
+    "notifications_deleted": 12,
+    "official_rules_deleted": 1,
+    "dependencies_cleared": 58
+  }
+}
+
+# Error Responses
+# 404 - Contest not found
+{
+  "detail": "Contest not found"
+}
+
+# 403 - Admin authentication required  
+{
+  "detail": "Not authenticated"
+}
+
+# 409 - Cannot delete active contest
+{
+  "detail": "Cannot delete active contest with 45 entries. Contest ends at 2024-07-31T23:59:59Z."
+}
+```
+
 ### View All Contests
 ```bash
 GET /admin/contests
