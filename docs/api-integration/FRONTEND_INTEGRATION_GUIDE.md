@@ -13,11 +13,29 @@ This guide provides everything you need to integrate a frontend application with
 
 ---
 
-## ⚠️ **BREAKING CHANGES - SMS Notifications**
+## ⚠️ **IMPORTANT UPDATES**
+
+### 🌍 **NEW: Timezone Support**
+
+**Comprehensive timezone handling now available:**
+
+#### 🎯 **Key Changes**
+1. **Admin Timezone Preferences**: Admins can set preferred timezone for contest creation
+2. **UTC Storage**: All times stored as UTC in database with timezone metadata
+3. **Local Display**: Contest times shown in admin's preferred timezone
+4. **Automatic Conversion**: Frontend must convert times to/from UTC
+
+#### 🔧 **Implementation Required**
+1. **Set Up Timezone Utilities**: Use provided timezone conversion functions
+2. **Admin Profile Integration**: Add timezone preferences page
+3. **Contest Form Updates**: Convert admin input to UTC before API calls
+4. **Display Logic**: Show times in admin's preferred timezone
+
+### 🚨 **SMS Notifications Security Updates**
 
 **Important updates for SMS winner notifications:**
 
-### 🛑 **Security Changes (Action Required)**
+#### 🛑 **Security Changes (Action Required)**
 1. **Admin JWT Required**: Legacy admin tokens **NO LONGER WORK** for SMS notifications
    - Must authenticate via OTP to get admin JWT: `POST /auth/request-otp` → `POST /auth/verify-otp`
    - Update admin login flow to use OTP authentication
@@ -30,10 +48,12 @@ This guide provides everything you need to integrate a frontend application with
    - `test_mode`, `notification_id`, `twilio_sid` fields added
    - Update response parsing code accordingly
 
-### ✨ **New Features Available**
+#### ✨ **New Features Available**
 - **Test Mode**: Add `test_mode: true` to simulate SMS without sending
 - **Audit Trail**: Each SMS gets a `notification_id` for tracking
 - **Enhanced Error Handling**: Specific error messages for different failure cases
+- **Interaction History**: View complete SMS history per user
+- **Multiple SMS Types**: Winners, reminders, and announcements
 
 ---
 
@@ -93,6 +113,367 @@ class ContestletAPI {
 }
 
 const api = new ContestletAPI();
+```
+
+---
+
+## 🌍 Timezone Handling
+
+### **Overview**
+Contestlet uses a timezone-aware system where:
+- **All times stored as UTC** in the database
+- **Admin interface displays times** in admin's preferred timezone  
+- **Contest creation accepts times** in admin's timezone
+- **System automatically converts** between timezones
+
+### **Admin Timezone Preferences**
+
+#### **Set Up Admin Timezone Preferences**
+```javascript
+// Get supported timezones list
+async function getSupportedTimezones() {
+  const response = await api.request('/admin/profile/timezones');
+  return response.timezones; // Array of timezone objects
+}
+
+// Set admin timezone preferences
+async function setAdminTimezone(timezone, autoDetect = false) {
+  const preferences = {
+    timezone: timezone,           // e.g., "America/New_York"
+    timezone_auto_detect: autoDetect
+  };
+  
+  const response = await adminAPI.request('/admin/profile/timezone', {
+    method: 'POST',
+    body: JSON.stringify(preferences)
+  });
+  
+  return response;
+}
+
+// Get current admin timezone preferences
+async function getAdminTimezone() {
+  return await adminAPI.request('/admin/profile/timezone');
+}
+```
+
+#### **Admin Profile Component Example**
+```jsx
+function AdminTimezoneSettings() {
+  const [timezones, setTimezones] = useState([]);
+  const [preferences, setPreferences] = useState(null);
+  const [selectedTimezone, setSelectedTimezone] = useState('UTC');
+
+  useEffect(() => {
+    loadTimezones();
+    loadPreferences();
+  }, []);
+
+  const loadTimezones = async () => {
+    const data = await getSupportedTimezones();
+    setTimezones(data);
+  };
+
+  const loadPreferences = async () => {
+    try {
+      const prefs = await getAdminTimezone();
+      setPreferences(prefs);
+      setSelectedTimezone(prefs.timezone);
+    } catch (error) {
+      // Admin hasn't set preferences yet
+      setPreferences({ timezone: 'UTC', timezone_auto_detect: true });
+    }
+  };
+
+  const saveTimezone = async () => {
+    const updated = await setAdminTimezone(selectedTimezone, false);
+    setPreferences(updated);
+    showSuccess('Timezone preferences saved!');
+  };
+
+  return (
+    <div className="timezone-settings">
+      <h3>🌍 Timezone Preferences</h3>
+      <p>Set your preferred timezone for contest creation and viewing</p>
+      
+      <div className="timezone-selector">
+        <label>Preferred Timezone:</label>
+        <select 
+          value={selectedTimezone}
+          onChange={(e) => setSelectedTimezone(e.target.value)}
+        >
+          {timezones.map(tz => (
+            <option key={tz.timezone} value={tz.timezone}>
+              {tz.display_name} ({tz.utc_offset})
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="timezone-preview">
+        <p><strong>Current time in your timezone:</strong></p>
+        <p>{getCurrentTimeInTimezone(selectedTimezone)}</p>
+      </div>
+
+      <button onClick={saveTimezone}>Save Timezone Preferences</button>
+    </div>
+  );
+}
+```
+
+### **Timezone Conversion Utilities**
+
+#### **Essential Conversion Functions**
+```javascript
+// Convert datetime-local input to UTC for API
+function datetimeLocalToUTC(datetimeLocal, adminTimezone) {
+  // datetimeLocal: "2024-01-15T14:30" (from datetime-local input)
+  // adminTimezone: "America/New_York" (from admin preferences)
+  
+  const localDateTime = moment.tz(datetimeLocal, adminTimezone);
+  return localDateTime.utc().format('YYYY-MM-DDTHH:mm:ss[Z]');
+}
+
+// Convert UTC datetime to admin's timezone for display
+function utcToDatetimeLocal(utcDateTime, adminTimezone) {
+  // utcDateTime: "2024-01-15T19:30:00Z" (from API)
+  // adminTimezone: "America/New_York" (from admin preferences)
+  
+  const utcMoment = moment.utc(utcDateTime);
+  return utcMoment.tz(adminTimezone).format('YYYY-MM-DDTHH:mm');
+}
+
+// Get current time in specific timezone
+function getCurrentTimeInTimezone(timezone) {
+  return moment().tz(timezone).format('MMMM DD, YYYY [at] h:mm A z');
+}
+
+// Validate timezone identifier
+function isValidTimezone(timezone) {
+  const supportedTimezones = [
+    'UTC', 'America/New_York', 'America/Chicago', 'America/Denver',
+    'America/Los_Angeles', 'America/Phoenix', 'America/Anchorage',
+    'Pacific/Honolulu', 'Europe/London', 'Europe/Paris', 'Asia/Tokyo'
+    // ... full list from API
+  ];
+  return supportedTimezones.includes(timezone);
+}
+```
+
+### **Contest Creation with Timezone Conversion**
+
+#### **Updated Contest Form**
+```javascript
+async function createContest(formData, adminTimezone) {
+  // Convert admin's local times to UTC for API
+  const contestData = {
+    ...formData,
+    start_time: datetimeLocalToUTC(formData.start_time, adminTimezone),
+    end_time: datetimeLocalToUTC(formData.end_time, adminTimezone)
+  };
+
+  const response = await adminAPI.request('/admin/contests', {
+    method: 'POST',
+    body: JSON.stringify(contestData)
+  });
+
+  return response;
+}
+
+// Contest form component
+function ContestForm() {
+  const [adminTimezone, setAdminTimezone] = useState('UTC');
+  const [formData, setFormData] = useState({
+    name: '',
+    start_time: '',
+    end_time: '',
+    // ... other fields
+  });
+
+  useEffect(() => {
+    // Load admin timezone preferences
+    loadAdminTimezone();
+    // Set default times in admin's timezone
+    setDefaultTimes();
+  }, []);
+
+  const loadAdminTimezone = async () => {
+    try {
+      const prefs = await getAdminTimezone();
+      setAdminTimezone(prefs.timezone);
+    } catch (error) {
+      setAdminTimezone('UTC'); // Fallback
+    }
+  };
+
+  const setDefaultTimes = () => {
+    const now = moment().tz(adminTimezone);
+    const defaultStart = now.add(1, 'day').startOf('hour');
+    const defaultEnd = defaultStart.clone().add(7, 'days');
+
+    setFormData(prev => ({
+      ...prev,
+      start_time: defaultStart.format('YYYY-MM-DDTHH:mm'),
+      end_time: defaultEnd.format('YYYY-MM-DDTHH:mm')
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const contest = await createContest(formData, adminTimezone);
+      showSuccess('Contest created successfully!');
+      // Redirect or update UI
+    } catch (error) {
+      showError('Failed to create contest: ' + error.message);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div className="timezone-info">
+        🕐 Times will be entered in: <strong>{getTimezoneDisplayName(adminTimezone)}</strong>
+        <a href="/admin/profile">Change timezone</a>
+      </div>
+
+      <div className="form-group">
+        <label>Contest Start Time:</label>
+        <input
+          type="datetime-local"
+          value={formData.start_time}
+          onChange={(e) => setFormData({...formData, start_time: e.target.value})}
+          required
+        />
+      </div>
+
+      <div className="form-group">
+        <label>Contest End Time:</label>
+        <input
+          type="datetime-local"
+          value={formData.end_time}
+          onChange={(e) => setFormData({...formData, end_time: e.target.value})}
+          required
+        />
+      </div>
+
+      {/* ... other form fields */}
+      
+      <button type="submit">Create Contest</button>
+    </form>
+  );
+}
+```
+
+### **Contest Display with Timezone Awareness**
+
+#### **Contest List with Timezone Display**
+```javascript
+function ContestList() {
+  const [contests, setContests] = useState([]);
+  const [adminTimezone, setAdminTimezone] = useState('UTC');
+
+  useEffect(() => {
+    loadAdminTimezone();
+    loadContests();
+  }, []);
+
+  const loadContests = async () => {
+    const data = await adminAPI.request('/admin/contests');
+    setContests(data);
+  };
+
+  const formatContestTime = (utcTime) => {
+    return utcToDatetimeLocal(utcTime, adminTimezone);
+  };
+
+  return (
+    <div className="contest-list">
+      <h2>Contests (Times in {getTimezoneDisplayName(adminTimezone)})</h2>
+      
+      {contests.map(contest => (
+        <div key={contest.id} className="contest-card">
+          <h3>{contest.name}</h3>
+          <div className="contest-times">
+            <p><strong>Start:</strong> {formatContestTime(contest.start_time)}</p>
+            <p><strong>End:</strong> {formatContestTime(contest.end_time)}</p>
+            <p><strong>Status:</strong> 
+              <span className={`status-${contest.status}`}>
+                {contest.status.toUpperCase()}
+              </span>
+            </p>
+          </div>
+          
+          {/* Show timezone metadata for debugging */}
+          {contest.created_timezone && (
+            <div className="timezone-metadata">
+              <small>Created in: {contest.created_timezone}</small>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+### **Important Implementation Notes**
+
+#### **1. Always Convert to UTC for API Calls**
+```javascript
+// ❌ Wrong - sending local time to API
+const payload = {
+  start_time: "2024-01-15T14:30:00"  // Local time, ambiguous
+};
+
+// ✅ Correct - convert to UTC first
+const payload = {
+  start_time: datetimeLocalToUTC("2024-01-15T14:30:00", adminTimezone)
+};
+```
+
+#### **2. Handle Timezone Changes**
+```javascript
+// Update display when admin changes timezone
+const handleTimezoneChange = async (newTimezone) => {
+  await setAdminTimezone(newTimezone);
+  setAdminTimezone(newTimezone);
+  
+  // Refresh contest display with new timezone
+  await loadContests();
+};
+```
+
+#### **3. Provide Clear Timezone Context**
+```css
+.timezone-info {
+  background: #e3f2fd;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.timezone-info strong {
+  color: #1976d2;
+}
+```
+
+### **Error Handling**
+
+#### **Timezone-Related Errors**
+```javascript
+const handleTimezoneError = (error) => {
+  if (error.message?.includes('Invalid timezone')) {
+    return 'Please select a valid timezone from the dropdown';
+  }
+  
+  if (error.message?.includes('timezone preferences')) {
+    return 'Could not load timezone preferences. Using UTC as default.';
+  }
+  
+  return 'Timezone operation failed. Please try again.';
+};
 ```
 
 ---

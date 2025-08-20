@@ -244,6 +244,87 @@ Authorization: Bearer {admin_token}
 ]
 ```
 
+## 🌍 Timezone Management
+
+### Get Supported Timezones
+```bash
+GET /admin/profile/timezones
+
+# Response
+{
+  "timezones": [
+    {
+      "timezone": "America/New_York",
+      "display_name": "Eastern Time (ET)",
+      "current_time": "2024-01-15T14:30:00-05:00",
+      "utc_offset": "-05:00",
+      "is_dst": false
+    },
+    {
+      "timezone": "America/Los_Angeles", 
+      "display_name": "Pacific Time (PT)",
+      "current_time": "2024-01-15T11:30:00-08:00",
+      "utc_offset": "-08:00",
+      "is_dst": false
+    }
+  ],
+  "default_timezone": "UTC"
+}
+```
+
+### Set Admin Timezone Preferences
+```bash
+POST /admin/profile/timezone
+Authorization: Bearer {admin_jwt}
+Content-Type: application/json
+
+{
+  "timezone": "America/New_York",
+  "timezone_auto_detect": false
+}
+
+# Response
+{
+  "admin_user_id": "admin_123",
+  "timezone": "America/New_York",
+  "timezone_auto_detect": false,
+  "created_at": "2024-01-15T19:30:00Z",
+  "updated_at": "2024-01-15T19:30:00Z"
+}
+```
+
+### Get Admin Timezone Preferences  
+```bash
+GET /admin/profile/timezone
+Authorization: Bearer {admin_jwt}
+
+# Response: Same format as POST /admin/profile/timezone
+```
+
+### Update Admin Timezone Preferences
+```bash
+PUT /admin/profile/timezone
+Authorization: Bearer {admin_jwt}
+Content-Type: application/json
+
+{
+  "timezone": "America/Los_Angeles"  # Only update timezone, keep auto_detect
+}
+
+# Response: Updated admin profile
+```
+
+### Reset Timezone Preferences
+```bash
+DELETE /admin/profile/timezone
+Authorization: Bearer {admin_jwt}
+
+# Response
+{
+  "message": "Timezone preferences reset to defaults"
+}
+```
+
 ### 🛑 SMS Notification Security
 - **Rate Limited**: 5 SMS per 5 minutes per admin
 - **JWT Required**: Must use admin JWT from OTP auth (legacy tokens rejected)
@@ -253,8 +334,50 @@ Authorization: Bearer {admin_token}
 ### 📊 Contest Status Values
 - **"ended"**: Contest has finished (past end_time)
 - **"active"**: Contest is currently running
-- **"upcoming"**: Contest hasn't started yet (future start_time)
+- **"upcoming"**: Contest hasn't started yet (future start_time)  
 - **"inactive"**: Contest is manually disabled but hasn't ended
+
+### 🌍 How Timezone Handling Works
+
+#### **Core Principle: UTC Storage, Local Display**
+- **Database**: All times stored as UTC
+- **Admin Interface**: Times displayed in admin's preferred timezone
+- **API**: Always sends/receives UTC times with timezone metadata
+
+#### **Contest Creation Flow**
+```javascript
+// 1. Admin enters time in their timezone
+Admin input: "2024-01-15 14:30" (2:30 PM Eastern)
+
+// 2. Frontend converts to UTC for API
+API payload: {
+  "start_time": "2024-01-15T19:30:00Z"  // UTC
+}
+
+// 3. Backend adds timezone metadata
+Stored contest: {
+  "start_time": "2024-01-15T19:30:00Z",     // UTC for storage
+  "created_timezone": "America/New_York",    // Admin's timezone context
+  "admin_user_id": "admin_123"               // Who created it
+}
+```
+
+#### **Admin Timezone Workflow**
+1. **Set preferences**: Choose timezone in `/admin/profile`
+2. **Create contests**: Enter times in your timezone
+3. **View contests**: Times display in your timezone
+4. **System handles conversion**: UTC storage + timezone context
+
+#### **Supported Timezones**
+- **US**: Eastern, Central, Mountain, Pacific, Arizona, Alaska, Hawaii
+- **International**: UTC, GMT, CET, JST, CST, AEST
+- **Canada**: Eastern, Central, Mountain, Pacific
+
+#### **Important Notes**
+- ⚠️ **Frontend must convert to UTC** before sending to API
+- ⚠️ **Always include timezone metadata** in contest responses
+- ⚠️ **Handle daylight saving time** transitions properly
+- ⚠️ **Validate timezone identifiers** before API calls
 
 ## 📊 Response Codes
 

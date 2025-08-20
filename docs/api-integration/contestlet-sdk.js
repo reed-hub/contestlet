@@ -493,6 +493,275 @@ class AdminModule {
       };
     }
   }
+
+  /**
+   * Get supported timezones with current time information
+   * @returns {Promise<Object>} Supported timezones list
+   */
+  async getSupportedTimezones() {
+    try {
+      const response = await this.sdk.request('/admin/profile/timezones');
+      
+      return {
+        success: true,
+        timezones: response.timezones.map(tz => ({
+          timezone: tz.timezone,
+          displayName: tz.display_name,
+          currentTime: new Date(tz.current_time),
+          utcOffset: tz.utc_offset,
+          isDst: tz.is_dst,
+        })),
+        defaultTimezone: response.default_timezone,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Get admin timezone preferences
+   * @returns {Promise<Object>} Admin timezone preferences
+   */
+  async getTimezonePreferences() {
+    try {
+      const profile = await this._adminRequest('/admin/profile/timezone');
+      
+      return {
+        success: true,
+        adminUserId: profile.admin_user_id,
+        timezone: profile.timezone,
+        timezoneAutoDetect: profile.timezone_auto_detect,
+        createdAt: new Date(profile.created_at),
+        updatedAt: new Date(profile.updated_at),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Set admin timezone preferences
+   * @param {string} timezone - IANA timezone identifier (e.g., 'America/New_York')
+   * @param {boolean} [autoDetect=false] - Whether to auto-detect timezone from browser
+   * @returns {Promise<Object>} Updated timezone preferences
+   */
+  async setTimezonePreferences(timezone, autoDetect = false) {
+    try {
+      const preferences = {
+        timezone: timezone,
+        timezone_auto_detect: autoDetect,
+      };
+
+      const profile = await this._adminRequest('/admin/profile/timezone', {
+        method: 'POST',
+        body: JSON.stringify(preferences),
+      });
+      
+      return {
+        success: true,
+        adminUserId: profile.admin_user_id,
+        timezone: profile.timezone,
+        timezoneAutoDetect: profile.timezone_auto_detect,
+        createdAt: new Date(profile.created_at),
+        updatedAt: new Date(profile.updated_at),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Update admin timezone preferences (partial update)
+   * @param {Object} updates - Fields to update
+   * @param {string} [updates.timezone] - New timezone identifier
+   * @param {boolean} [updates.timezoneAutoDetect] - New auto-detect setting
+   * @returns {Promise<Object>} Updated timezone preferences
+   */
+  async updateTimezonePreferences(updates) {
+    try {
+      const preferences = {};
+      if (updates.timezone !== undefined) preferences.timezone = updates.timezone;
+      if (updates.timezoneAutoDetect !== undefined) preferences.timezone_auto_detect = updates.timezoneAutoDetect;
+
+      const profile = await this._adminRequest('/admin/profile/timezone', {
+        method: 'PUT',
+        body: JSON.stringify(preferences),
+      });
+      
+      return {
+        success: true,
+        adminUserId: profile.admin_user_id,
+        timezone: profile.timezone,
+        timezoneAutoDetect: profile.timezone_auto_detect,
+        createdAt: new Date(profile.created_at),
+        updatedAt: new Date(profile.updated_at),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Reset timezone preferences to defaults
+   * @returns {Promise<Object>} Reset confirmation
+   */
+  async resetTimezonePreferences() {
+    try {
+      const response = await this._adminRequest('/admin/profile/timezone', {
+        method: 'DELETE',
+      });
+      
+      return {
+        success: true,
+        message: response.message,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Get user interaction history (for entry details)
+   * @param {number} userId - User ID to get history for
+   * @param {number} [contestId] - Filter by specific contest
+   * @param {number} [limit=50] - Maximum number of interactions to return
+   * @returns {Promise<Object>} User interaction history
+   */
+  async getUserInteractionHistory(userId, contestId = null, limit = 50) {
+    try {
+      const params = new URLSearchParams();
+      if (contestId) params.append('contest_id', contestId);
+      if (limit !== 50) params.append('limit', limit);
+      
+      const queryString = params.toString();
+      const endpoint = `/admin/users/${userId}/interaction-history${queryString ? `?${queryString}` : ''}`;
+      
+      const logs = await this._adminRequest(endpoint);
+      
+      return {
+        success: true,
+        logs: logs.map(log => ({
+          id: log.id,
+          contestId: log.contest_id,
+          contestName: log.contest_name,
+          userId: log.user_id,
+          entryId: log.entry_id,
+          message: log.message,
+          type: log.notification_type,
+          status: log.status,
+          twilioSid: log.twilio_sid,
+          errorMessage: log.error_message,
+          testMode: log.test_mode,
+          sentAt: new Date(log.sent_at),
+          adminUserId: log.admin_user_id,
+          userPhone: log.user_phone,
+        })),
+        total: logs.length,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Send reminder SMS to contest entrant
+   * @param {number} contestId - Contest ID
+   * @param {number} entryId - Entry ID  
+   * @param {string} message - Reminder message
+   * @param {boolean} [testMode=false] - Whether to send in test mode
+   * @returns {Promise<Object>} Reminder notification result
+   */
+  async sendReminder(contestId, entryId, message, testMode = false) {
+    try {
+      const notificationData = {
+        entry_id: entryId,
+        message: message,
+        test_mode: testMode,
+      };
+
+      const result = await this._adminRequest(`/admin/contests/${contestId}/send-reminder`, {
+        method: 'POST',
+        body: JSON.stringify(notificationData),
+      });
+      
+      return {
+        success: result.success,
+        message: result.message,
+        entryId: result.entry_id,
+        contestId: result.contest_id,
+        winnerPhone: result.winner_phone,
+        smsStatus: result.sms_status,
+        testMode: result.test_mode,
+        notificationId: result.notification_id,
+        twilioSid: result.twilio_sid,
+        sentAt: new Date(result.notification_sent_at),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Send announcement SMS to contest entrant
+   * @param {number} contestId - Contest ID
+   * @param {number} entryId - Entry ID
+   * @param {string} message - Announcement message
+   * @param {boolean} [testMode=false] - Whether to send in test mode
+   * @returns {Promise<Object>} Announcement notification result
+   */
+  async sendAnnouncement(contestId, entryId, message, testMode = false) {
+    try {
+      const notificationData = {
+        entry_id: entryId,
+        message: message,
+        test_mode: testMode,
+      };
+
+      const result = await this._adminRequest(`/admin/contests/${contestId}/send-announcement`, {
+        method: 'POST',
+        body: JSON.stringify(notificationData),
+      });
+      
+      return {
+        success: result.success,
+        message: result.message,
+        entryId: result.entry_id,
+        contestId: result.contest_id,
+        winnerPhone: result.winner_phone,
+        smsStatus: result.sms_status,
+        testMode: result.test_mode,
+        notificationId: result.notification_id,
+        twilioSid: result.twilio_sid,
+        sentAt: new Date(result.notification_sent_at),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
 }
 
 // Utility functions
