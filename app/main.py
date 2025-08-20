@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import Base, engine
 from app.routers import auth_router, contests_router, entries_router, admin_router
+from app.routers.admin_profile import router as admin_profile_router
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -27,6 +28,7 @@ app.include_router(auth_router)
 app.include_router(contests_router)
 app.include_router(entries_router)
 app.include_router(admin_router)
+app.include_router(admin_profile_router)
 
 
 @app.get("/")

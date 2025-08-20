@@ -58,6 +58,10 @@ class AdminContestResponse(BaseModel):
     winner_phone: Optional[str] = Field(None, description="Winner's phone number (masked)")
     winner_selected_at: Optional[datetime] = Field(None, description="When winner was selected")
     
+    # Timezone metadata
+    created_timezone: Optional[str] = Field(None, description="Timezone used when contest was created")
+    admin_user_id: Optional[str] = Field(None, description="Admin who created the contest")
+    
     def __init__(self, **data):
         # Compute status before creating the object
         if 'status' not in data:

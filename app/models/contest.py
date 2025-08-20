@@ -24,6 +24,10 @@ class Contest(Base):
     winner_phone = Column(String, nullable=True)  # Winner's phone number
     winner_selected_at = Column(DateTime(timezone=True), nullable=True)  # When winner was selected
     
+    # Timezone metadata (for audit trail and admin context)
+    created_timezone = Column(String(50), nullable=True)  # Admin's timezone when contest was created
+    admin_user_id = Column(String(50), nullable=True)  # Admin who created the contest
+    
     # Relationships
     entries = relationship("Entry", back_populates="contest")
     official_rules = relationship("OfficialRules", back_populates="contest", uselist=False)

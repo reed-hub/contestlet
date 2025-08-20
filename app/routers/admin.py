@@ -92,6 +92,18 @@ async def create_contest(
     # Validate legal compliance
     validate_contest_compliance(contest_dict, rules_dict)
     
+    # Add timezone metadata from admin's current preferences
+    from app.models.admin_profile import AdminProfile
+    
+    admin_user_id = admin_user.get("sub", "unknown")
+    admin_profile = db.query(AdminProfile).filter(
+        AdminProfile.admin_user_id == admin_user_id
+    ).first()
+    
+    # Add timezone and admin metadata to contest
+    contest_dict['admin_user_id'] = admin_user_id
+    contest_dict['created_timezone'] = admin_profile.timezone if admin_profile else "UTC"
+    
     # Create contest
     contest = Contest(**contest_dict)
     db.add(contest)
@@ -480,6 +492,296 @@ async def get_notification_logs(
     notifications = query.order_by(Notification.sent_at.desc()).limit(limit).all()
     
     # Transform to response format with additional context
+    response_logs = []
+    for notification in notifications:
+        # Mask phone number for privacy
+        phone = notification.user.phone if notification.user else None
+        masked_phone = f"{phone[:2]}***{phone[-4:]}" if phone and len(phone) >= 6 else phone
+        
+        log_entry = NotificationLogResponse(
+            id=notification.id,
+            contest_id=notification.contest_id,
+            user_id=notification.user_id,
+            entry_id=notification.entry_id,
+            message=notification.message,
+            notification_type=notification.notification_type,
+            status=notification.status,
+            twilio_sid=notification.twilio_sid,
+            error_message=notification.error_message,
+            test_mode=notification.test_mode,
+            sent_at=notification.sent_at,
+            admin_user_id=notification.admin_user_id,
+            contest_name=notification.contest.name if notification.contest else None,
+            user_phone=masked_phone
+        )
+        response_logs.append(log_entry)
+    
+    return response_logs
+
+
+@router.post("/contests/{contest_id}/send-reminder", response_model=WinnerNotificationResponse)
+async def send_contest_reminder(
+    contest_id: int,
+    notification_request: WinnerNotificationRequest,
+    admin_user: dict = Depends(get_admin_user_jwt_only),
+    db: Session = Depends(get_db)
+):
+    """
+    Send reminder SMS to a specific contest entrant.
+    
+    🔧 Features:
+    - Send reminder about contest deadlines or updates
+    - Requires admin JWT authentication
+    - Rate limited for security
+    - Comprehensive logging to notifications table
+    """
+    # Rate limiting
+    rate_limit_key = f"admin_sms_{admin_user.get('sub', 'unknown')}"
+    if not rate_limiter.is_allowed(rate_limit_key):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many SMS notifications. Please wait before sending another."
+        )
+    
+    # Validate contest exists
+    contest = db.query(Contest).filter(Contest.id == contest_id).first()
+    if not contest:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Contest not found"
+        )
+    
+    # Validate entry exists and belongs to the contest
+    entry = db.query(Entry).options(joinedload(Entry.user)).filter(
+        Entry.id == notification_request.entry_id,
+        Entry.contest_id == contest_id
+    ).first()
+    
+    if not entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Entry not found for this contest"
+        )
+    
+    # Get user's phone number
+    user_phone = entry.user.phone
+    if not user_phone:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User has no phone number on file"
+        )
+    
+    # Create notification record
+    notification = Notification(
+        contest_id=contest_id,
+        user_id=entry.user_id,
+        entry_id=entry.id,
+        message=notification_request.message,
+        notification_type="reminder",
+        status="pending",
+        test_mode=notification_request.test_mode,
+        admin_user_id=admin_user.get("sub", "unknown")
+    )
+    db.add(notification)
+    db.commit()
+    db.refresh(notification)
+    
+    try:
+        # Send SMS notification
+        success, sms_message, twilio_sid = await sms_notification_service.send_notification(
+            to_phone=user_phone,
+            message=notification_request.message,
+            notification_type="reminder",
+            test_mode=notification_request.test_mode
+        )
+        
+        # Update notification record with result
+        notification.status = "sent" if success else "failed"
+        notification.twilio_sid = twilio_sid
+        if not success:
+            notification.error_message = sms_message
+        
+        db.commit()
+        
+        # Mask phone number for privacy
+        masked_phone = f"{user_phone[:2]}***{user_phone[-4:]}" if len(user_phone) >= 6 else user_phone
+        
+        return WinnerNotificationResponse(
+            success=success,
+            message="Reminder sent successfully" if success else "Failed to send reminder",
+            entry_id=entry.id,
+            contest_id=contest_id,
+            winner_phone=masked_phone,
+            sms_status=sms_message,
+            test_mode=notification_request.test_mode,
+            notification_id=notification.id,
+            twilio_sid=twilio_sid,
+            notification_sent_at=notification.sent_at
+        )
+    
+    except Exception as e:
+        # Update notification record with error
+        notification.status = "failed"
+        notification.error_message = str(e)
+        db.commit()
+        
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"SMS reminder failed: {str(e)}"
+        )
+
+
+@router.post("/contests/{contest_id}/send-announcement", response_model=WinnerNotificationResponse)
+async def send_contest_announcement(
+    contest_id: int,
+    notification_request: WinnerNotificationRequest,
+    admin_user: dict = Depends(get_admin_user_jwt_only),
+    db: Session = Depends(get_db)
+):
+    """
+    Send general announcement SMS to a specific contest entrant.
+    
+    🔧 Features:
+    - Send announcements about contest updates, events, etc.
+    - Requires admin JWT authentication
+    - Rate limited for security
+    - Comprehensive logging to notifications table
+    """
+    # Rate limiting
+    rate_limit_key = f"admin_sms_{admin_user.get('sub', 'unknown')}"
+    if not rate_limiter.is_allowed(rate_limit_key):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many SMS notifications. Please wait before sending another."
+        )
+    
+    # Validate contest exists
+    contest = db.query(Contest).filter(Contest.id == contest_id).first()
+    if not contest:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Contest not found"
+        )
+    
+    # Validate entry exists and belongs to the contest
+    entry = db.query(Entry).options(joinedload(Entry.user)).filter(
+        Entry.id == notification_request.entry_id,
+        Entry.contest_id == contest_id
+    ).first()
+    
+    if not entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Entry not found for this contest"
+        )
+    
+    # Get user's phone number
+    user_phone = entry.user.phone
+    if not user_phone:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User has no phone number on file"
+        )
+    
+    # Create notification record
+    notification = Notification(
+        contest_id=contest_id,
+        user_id=entry.user_id,
+        entry_id=entry.id,
+        message=notification_request.message,
+        notification_type="announcement",
+        status="pending",
+        test_mode=notification_request.test_mode,
+        admin_user_id=admin_user.get("sub", "unknown")
+    )
+    db.add(notification)
+    db.commit()
+    db.refresh(notification)
+    
+    try:
+        # Send SMS notification
+        success, sms_message, twilio_sid = await sms_notification_service.send_notification(
+            to_phone=user_phone,
+            message=notification_request.message,
+            notification_type="announcement",
+            test_mode=notification_request.test_mode
+        )
+        
+        # Update notification record with result
+        notification.status = "sent" if success else "failed"
+        notification.twilio_sid = twilio_sid
+        if not success:
+            notification.error_message = sms_message
+        
+        db.commit()
+        
+        # Mask phone number for privacy
+        masked_phone = f"{user_phone[:2]}***{user_phone[-4:]}" if len(user_phone) >= 6 else user_phone
+        
+        return WinnerNotificationResponse(
+            success=success,
+            message="Announcement sent successfully" if success else "Failed to send announcement",
+            entry_id=entry.id,
+            contest_id=contest_id,
+            winner_phone=masked_phone,
+            sms_status=sms_message,
+            test_mode=notification_request.test_mode,
+            notification_id=notification.id,
+            twilio_sid=twilio_sid,
+            notification_sent_at=notification.sent_at
+        )
+    
+    except Exception as e:
+        # Update notification record with error
+        notification.status = "failed"
+        notification.error_message = str(e)
+        db.commit()
+        
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"SMS announcement failed: {str(e)}"
+        )
+
+
+@router.get("/users/{user_id}/interaction-history", response_model=List[NotificationLogResponse])
+async def get_user_interaction_history(
+    user_id: int,
+    contest_id: Optional[int] = None,
+    limit: int = 50,
+    admin_user: dict = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get complete SMS interaction history for a specific user.
+    
+    🔧 Features:
+    - View all SMS communications with a user across all contests
+    - Filter by specific contest if needed
+    - Includes winners, reminders, announcements
+    - Perfect for entry detail views with interaction history
+    """
+    # Validate user exists
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Build query for user's notification history
+    query = db.query(Notification).options(
+        joinedload(Notification.contest),
+        joinedload(Notification.user)
+    ).filter(Notification.user_id == user_id)
+    
+    # Apply contest filter if provided
+    if contest_id:
+        query = query.filter(Notification.contest_id == contest_id)
+    
+    # Order by most recent first and limit results
+    notifications = query.order_by(Notification.sent_at.desc()).limit(limit).all()
+    
+    # Transform to response format
     response_logs = []
     for notification in notifications:
         # Mask phone number for privacy
