@@ -13,24 +13,51 @@ class TwilioVerifyService:
     """
     
     def __init__(self):
-        self.use_mock = settings.USE_MOCK_SMS
-        self.verify_service_sid = settings.TWILIO_VERIFY_SERVICE_SID
+        self.client = None
+        self.verify_service_sid = None
         
-        if not self.use_mock:
+        try:
+            self.use_mock = settings.USE_MOCK_SMS
+            self.verify_service_sid = settings.TWILIO_VERIFY_SERVICE_SID
+            
+            # Always try to import twilio, but handle gracefully
             try:
                 from twilio.rest import Client
-                self.client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-                
-                if not self.verify_service_sid:
-                    logger.error("TWILIO_VERIFY_SERVICE_SID not configured")
-                    self.use_mock = True
-                    
+                self.twilio_available = True
             except ImportError:
-                logger.warning("Twilio not available, falling back to mock verification")
+                logger.warning("Twilio library not available, using mock mode")
+                self.twilio_available = False
                 self.use_mock = True
-            except Exception as e:
-                logger.error(f"Failed to initialize Twilio client: {e}")
-                self.use_mock = True
+            
+            # If not using mock and twilio is available, initialize client
+            if not self.use_mock and self.twilio_available:
+                try:
+                    if not settings.TWILIO_ACCOUNT_SID or not settings.TWILIO_AUTH_TOKEN:
+                        logger.error("Twilio credentials not configured, falling back to mock")
+                        self.use_mock = True
+                    elif not self.verify_service_sid:
+                        logger.error("TWILIO_VERIFY_SERVICE_SID not configured, falling back to mock")
+                        self.use_mock = True
+                    else:
+                        from twilio.rest import Client
+                        self.client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+                        logger.info("Twilio client initialized successfully")
+                        
+                except Exception as e:
+                    logger.error(f"Failed to initialize Twilio client: {e}")
+                    self.use_mock = True
+            
+            # Log final configuration
+            mode = "MOCK" if self.use_mock else "REAL"
+            logger.info(f"TwilioVerifyService initialized in {mode} mode")
+            
+        except Exception as e:
+            logger.error(f"Critical error in TwilioVerifyService init: {e}")
+            # Fall back to safe defaults
+            self.use_mock = True
+            self.twilio_available = False
+            self.client = None
+            self.verify_service_sid = None
 
     def validate_phone_number(self, phone: str) -> Tuple[bool, str, Optional[str]]:
         """
@@ -68,15 +95,21 @@ class TwilioVerifyService:
         Returns:
             Tuple of (success, message)
         """
-        # Validate phone number first
-        is_valid, formatted_phone, error = self.validate_phone_number(phone)
-        if not is_valid:
-            return False, error or "Invalid phone number"
-        
-        if self.use_mock:
-            return await self._send_mock_verification(formatted_phone)
-        else:
-            return await self._send_twilio_verification(formatted_phone)
+        try:
+            # Validate phone number first
+            is_valid, formatted_phone, error = self.validate_phone_number(phone)
+            if not is_valid:
+                logger.warning(f"Phone validation failed for {phone}: {error}")
+                return False, error or "Invalid phone number"
+            
+            if self.use_mock:
+                return await self._send_mock_verification(formatted_phone)
+            else:
+                return await self._send_twilio_verification(formatted_phone)
+                
+        except Exception as e:
+            logger.error(f"Unexpected error in send_verification: {e}")
+            return False, "Failed to send verification code. Please try again."
 
     async def check_verification(self, phone: str, code: str) -> Tuple[bool, str]:
         """
