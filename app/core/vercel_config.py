@@ -64,7 +64,12 @@ def get_environment_config() -> Dict[str, Any]:
         config.update({
             "debug": False,
             "log_level": "INFO",
-            "use_mock_sms": False,  # Use real Twilio but limited
+            "use_mock_sms": True,   # Use mock mode for staging safety
+            "staging_sms_whitelist": True,  # Only allow whitelisted numbers
+            "staging_allowed_phones": [
+                "+15551234567",  # Test numbers only
+                "+18187958204"   # Your admin number
+            ],
             "cors_origins": [
                 "https://contestlet-frontend-staging.vercel.app",
                 "https://staging.contestlet.com"

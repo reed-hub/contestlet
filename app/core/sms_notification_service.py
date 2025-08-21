@@ -8,6 +8,7 @@ from typing import Tuple, Optional
 from twilio.rest import Client
 from twilio.base.exceptions import TwilioException
 from app.core.config import settings
+from app.core.vercel_config import get_environment_config
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,9 @@ class SMSNotificationService:
     """Service for sending SMS notifications via Twilio"""
     
     def __init__(self):
-        self.use_mock = settings.USE_MOCK_SMS
+        # Get environment-specific configuration
+        self.env_config = get_environment_config()
+        self.use_mock = settings.USE_MOCK_SMS or self.env_config.get("use_mock_sms", False)
         
         if not self.use_mock:
             if not all([settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN, settings.TWILIO_PHONE_NUMBER]):
@@ -34,6 +37,17 @@ class SMSNotificationService:
         if self.use_mock:
             logger.info("SMS notification service initialized in MOCK mode")
     
+    def _is_phone_allowed_in_staging(self, phone: str) -> bool:
+        """Check if phone number is allowed in staging environment"""
+        if self.env_config.get("environment") != "staging":
+            return True  # Not staging, allow all
+        
+        if not self.env_config.get("staging_sms_whitelist", False):
+            return True  # Whitelist disabled, allow all
+        
+        allowed_phones = self.env_config.get("staging_allowed_phones", [])
+        return phone in allowed_phones
+    
     async def send_notification(self, to_phone: str, message: str, notification_type: str = "general", test_mode: bool = False) -> Tuple[bool, str, Optional[str]]:
         """
         Send SMS notification to a phone number
@@ -48,6 +62,11 @@ class SMSNotificationService:
             Tuple of (success: bool, message: str, twilio_sid: Optional[str])
         """
         try:
+            # Check staging whitelist if applicable
+            if not self._is_phone_allowed_in_staging(to_phone):
+                logger.warning(f"SMS to {self._mask_phone(to_phone)} blocked - not in staging whitelist")
+                return False, "Phone number not allowed in staging environment", None
+            
             if test_mode:
                 return await self._send_test_notification(to_phone, message, notification_type)
             elif self.use_mock:
