@@ -32,6 +32,22 @@ class Contest(Base):
     # Campaign import metadata
     campaign_metadata = Column(JSON, nullable=True)  # Original one-sheet JSON and import data
     
+    # Contest configuration (Phase 1 form support)
+    contest_type = Column(String(50), default="general", nullable=False)  # general, sweepstakes, instant_win
+    entry_method = Column(String(50), default="sms", nullable=False)      # sms, email, web_form
+    winner_selection_method = Column(String(50), default="random", nullable=False)  # random, scheduled, instant
+    
+    # Entry limitations and validation
+    minimum_age = Column(Integer, default=18, nullable=False)
+    max_entries_per_person = Column(Integer, nullable=True)    # NULL = unlimited
+    total_entry_limit = Column(Integer, nullable=True)         # NULL = unlimited
+    
+    # Additional contest details
+    consolation_offer = Column(Text, nullable=True)            # Consolation prize/offer for non-winners
+    geographic_restrictions = Column(Text, nullable=True)      # Geographic limitations
+    contest_tags = Column(JSON, nullable=True)                # Array of tags for organization
+    promotion_channels = Column(JSON, nullable=True)          # Array of promotion channels
+    
     # Relationships
     entries = relationship("Entry", back_populates="contest")
     official_rules = relationship("OfficialRules", back_populates="contest", uselist=False)

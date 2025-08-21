@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, validator
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from .contest import ContestBase
 from .official_rules import OfficialRulesCreate, OfficialRulesUpdate, OfficialRulesResponse
 
@@ -8,6 +8,49 @@ from .official_rules import OfficialRulesCreate, OfficialRulesUpdate, OfficialRu
 class AdminContestCreate(ContestBase):
     """Schema for admin contest creation with required official rules"""
     official_rules: OfficialRulesCreate = Field(..., description="Official contest rules (required)")
+    
+    # Contest configuration (Phase 1 form support)
+    contest_type: Optional[str] = Field("general", description="Contest type (general, sweepstakes, instant_win)")
+    entry_method: Optional[str] = Field("sms", description="Entry method (sms, email, web_form)")
+    winner_selection_method: Optional[str] = Field("random", description="Winner selection method (random, scheduled, instant)")
+    
+    # Entry limitations and validation
+    minimum_age: Optional[int] = Field(18, ge=13, le=100, description="Minimum age requirement")
+    max_entries_per_person: Optional[int] = Field(None, ge=1, description="Maximum entries per person (null = unlimited)")
+    total_entry_limit: Optional[int] = Field(None, ge=1, description="Total entry limit (null = unlimited)")
+    
+    # Additional contest details
+    consolation_offer: Optional[str] = Field(None, description="Consolation prize/offer for non-winners")
+    geographic_restrictions: Optional[str] = Field(None, description="Geographic limitations or restrictions")
+    contest_tags: Optional[List[str]] = Field(None, description="Tags for contest organization and filtering")
+    promotion_channels: Optional[List[str]] = Field(None, description="Promotion channels used for marketing")
+    
+    @validator('contest_type')
+    def validate_contest_type(cls, v):
+        valid_types = ['general', 'sweepstakes', 'instant_win']
+        if v not in valid_types:
+            raise ValueError(f'Contest type must be one of: {valid_types}')
+        return v
+    
+    @validator('entry_method')
+    def validate_entry_method(cls, v):
+        valid_methods = ['sms', 'email', 'web_form']
+        if v not in valid_methods:
+            raise ValueError(f'Entry method must be one of: {valid_methods}')
+        return v
+    
+    @validator('winner_selection_method')
+    def validate_winner_selection_method(cls, v):
+        valid_methods = ['random', 'scheduled', 'instant']
+        if v not in valid_methods:
+            raise ValueError(f'Winner selection method must be one of: {valid_methods}')
+        return v
+    
+    @validator('minimum_age')
+    def validate_minimum_age(cls, v):
+        if v < 13:  # COPPA compliance
+            raise ValueError('Minimum age cannot be less than 13 for legal compliance')
+        return v
 
 
 class AdminContestUpdate(BaseModel):

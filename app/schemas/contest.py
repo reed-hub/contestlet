@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, validator
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 
 class ContestBase(BaseModel):
@@ -13,6 +13,18 @@ class ContestBase(BaseModel):
     end_time: datetime = Field(..., description="Contest end time")
     prize_description: Optional[str] = Field(None, description="Prize description")
     active: bool = Field(True, description="Whether the contest is active")
+    
+    # Contest configuration (Phase 1 form support) - Optional for base schema
+    contest_type: Optional[str] = Field("general", description="Contest type")
+    entry_method: Optional[str] = Field("sms", description="Entry method")
+    winner_selection_method: Optional[str] = Field("random", description="Winner selection method")
+    minimum_age: Optional[int] = Field(18, description="Minimum age requirement")
+    max_entries_per_person: Optional[int] = Field(None, description="Maximum entries per person")
+    total_entry_limit: Optional[int] = Field(None, description="Total entry limit")
+    consolation_offer: Optional[str] = Field(None, description="Consolation prize/offer")
+    geographic_restrictions: Optional[str] = Field(None, description="Geographic restrictions")
+    contest_tags: Optional[List[str]] = Field(None, description="Contest tags")
+    promotion_channels: Optional[List[str]] = Field(None, description="Promotion channels")
 
     @validator('latitude')
     def validate_latitude(cls, v):

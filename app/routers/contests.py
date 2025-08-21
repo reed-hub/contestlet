@@ -168,6 +168,39 @@ async def enter_contest(
             detail="Contest is complete - winner already selected"
         )
     
+    # Phase 1: Advanced entry validation based on contest configuration
+    
+    # Check maximum entries per person
+    if contest.max_entries_per_person:
+        user_entry_count = db.query(Entry).filter(
+            and_(
+                Entry.contest_id == contest.id,
+                Entry.user_id == current_user.id
+            )
+        ).count()
+        
+        if user_entry_count >= contest.max_entries_per_person:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Maximum {contest.max_entries_per_person} entries per person allowed"
+            )
+    
+    # Check total entry limit for contest
+    if contest.total_entry_limit:
+        total_entries = db.query(Entry).filter(Entry.contest_id == contest.id).count()
+        if total_entries >= contest.total_entry_limit:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Contest has reached maximum entry limit"
+            )
+    
+    # Note: Age validation would require user birth_date field
+    # This can be implemented when user profiles are extended
+    # if contest.minimum_age > 18 and user.birth_date:
+    #     age = calculate_age(user.birth_date)
+    #     if age < contest.minimum_age:
+    #         raise HTTPException(400, f"Must be at least {contest.minimum_age} years old")
+    
     # Check if user has already entered this contest (prevent duplicates)
     existing_entry = db.query(Entry).filter(
         and_(
