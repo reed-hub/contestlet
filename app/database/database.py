@@ -8,7 +8,10 @@ def get_database_url():
     """Get appropriate database URL based on environment"""
     # Check if running on Vercel
     if os.getenv("VERCEL_ENV"):
-        # Use in-memory SQLite for Vercel (no file system writes allowed)
+        # If external database URL is provided, use it
+        if settings.DATABASE_URL and not settings.DATABASE_URL.startswith("sqlite:///"):
+            return settings.DATABASE_URL
+        # Otherwise use in-memory SQLite for Vercel (fallback)
         return "sqlite:///:memory:"
     
     # Use configured database URL for local/other environments
