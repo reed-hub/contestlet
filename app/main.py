@@ -10,6 +10,11 @@ from app.core.vercel_config import get_vercel_environment, get_environment_confi
 env_info = log_environment_info()
 env_config = get_environment_config()
 
+# Log database configuration
+from app.database.database import get_database_url
+database_url = get_database_url()
+print(f"🗄️ Database URL: {database_url}")
+
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
