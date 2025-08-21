@@ -14,17 +14,22 @@ A FastAPI backend for hosting micro sweepstakes-style contests across the U.S.
 
 ## 📚 Documentation
 
-### For Frontend Developers
-👉 **[Frontend Integration Guide](./docs/api-integration/)** - Complete documentation for integrating with the Contestlet API
+All documentation has been organized in the **[`docs/`](./docs/)** directory:
 
-**What's included:**
-- 📖 Step-by-step integration guide
-- 📋 Quick API reference
-- 🛠️ Ready-to-use JavaScript SDK
-- 🎪 Interactive demo page
+### **For Frontend Developers**
+👉 **[Frontend Integration Guide](./docs/api-integration/FRONTEND_INTEGRATION_GUIDE.md)** - Complete API integration guide  
+👉 **[API Quick Reference](./docs/api-integration/API_QUICK_REFERENCE.md)** - Compact endpoint reference  
+👉 **[JavaScript SDK](./docs/api-integration/contestlet-sdk.js)** - Ready-to-use SDK  
 
-### For Backend Developers
-Continue reading this README for API details, deployment, and server configuration.
+### **For Backend Developers & DevOps**
+👉 **[Deployment Guide](./docs/deployment/)** - Vercel & staging setup  
+👉 **[Database Setup](./docs/database/)** - Supabase & environment separation  
+👉 **[Timezone Guide](./docs/TIMEZONE_GUIDE.md)** - Complete timezone handling  
+
+### **For Testing**
+👉 **[Testing Documentation](./docs/testing/)** - Test files and data summaries
+
+📖 **[Complete Documentation Index](./docs/README.md)** - Full documentation overview
 
 ## Project Structure
 
@@ -37,10 +42,15 @@ contestlet/
 │   ├── routers/        # API route handlers
 │   ├── schemas/        # Pydantic schemas
 │   └── main.py         # FastAPI application
-├── docs/               # Documentation
-│   └── api-integration/ # Frontend integration guides
+├── docs/               # 📚 All Documentation
+│   ├── api-integration/ # Frontend integration guides
+│   ├── deployment/     # Deployment & DevOps guides
+│   ├── database/       # Database setup & migration
+│   ├── testing/        # Test files & scenarios
+│   └── README.md       # Documentation index
 ├── requirements.txt    # Python dependencies
-└── README.md
+├── vercel.json        # Vercel deployment config
+└── README.md          # This file
 ```
 
 ## Quick Start

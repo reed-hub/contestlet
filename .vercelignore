@@ -1,0 +1,63 @@
+# Vercel ignore file - exclude from deployment
+
+# Development files
+*.db
+*.sqlite
+*.sqlite3
+contestlet_dev.db
+
+# Environment files (use Vercel dashboard for env vars)
+.env*
+environments/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Scripts (deployment scripts not needed on Vercel)
+scripts/
+
+# GitHub workflows
+.github/
+
+# Testing
+tests/
+pytest.ini
+.coverage
+htmlcov/
+
+# Logs
+*.log
+logs/
+
+# Backup files
+*.backup
+*.bak

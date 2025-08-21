@@ -65,10 +65,19 @@ class AdminContestResponse(BaseModel):
     def __init__(self, **data):
         # Compute status before creating the object
         if 'status' not in data:
-            now = datetime.utcnow()
+            from app.core.datetime_utils import utc_now
+            now = utc_now()
             active = data.get('active', True)
             start_time = data.get('start_time')
             end_time = data.get('end_time')
+            
+            # Make datetime objects timezone-aware for comparison if they aren't already
+            if start_time and start_time.tzinfo is None:
+                from datetime import timezone
+                start_time = start_time.replace(tzinfo=timezone.utc)
+            if end_time and end_time.tzinfo is None:
+                from datetime import timezone
+                end_time = end_time.replace(tzinfo=timezone.utc)
             
             if not active:
                 # If manually set to inactive, check if it has ended

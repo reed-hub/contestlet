@@ -1,71 +1,89 @@
 # 📚 Contestlet Documentation
 
-Welcome to the Contestlet project documentation! This directory contains comprehensive guides and resources for different aspects of the Contestlet platform.
+Welcome to the Contestlet API documentation. This directory contains all technical documentation organized by category.
 
-## 📁 Documentation Sections
+## 📋 **Table of Contents**
 
-### 🔗 [API Integration](./api-integration/)
-**Frontend Development Resources**
+### 🔌 **API Integration**
+- **[Frontend Integration Guide](api-integration/FRONTEND_INTEGRATION_GUIDE.md)** - Complete guide for frontend developers
+- **[API Quick Reference](api-integration/API_QUICK_REFERENCE.md)** - Compact endpoint reference
+- **[JavaScript SDK](api-integration/contestlet-sdk.js)** - Ready-to-use SDK
+- **[Demo HTML](api-integration/demo.html)** - Working examples
 
-Complete documentation for integrating frontend applications with the Contestlet API, including:
-- 📖 Comprehensive integration guide
-- 📋 Quick reference for all endpoints
-- 🛠️ Ready-to-use JavaScript SDK
-- 🎪 Interactive demo with working examples
+### 🚀 **Deployment**
+- **[Vercel Deployment Guide](deployment/VERCEL_DEPLOYMENT_GUIDE.md)** - Complete Vercel setup
+- **[Staging Deployment Guide](deployment/STAGING_DEPLOYMENT_GUIDE.md)** - Staging environment setup
+- **[Deployment Summary](deployment/DEPLOYMENT_SUMMARY.md)** - Quick deployment overview
 
-**Perfect for:** Frontend developers, mobile app developers, third-party integrators
+### 🗄️ **Database**
+- **[Supabase Setup](database/setup_supabase.md)** - Database configuration
+- **[Environment Separation](database/SUPABASE_ENVIRONMENT_SUCCESS.md)** - Production vs Staging
+- **[Supabase Branching](database/SUPABASE_BRANCHING_SETUP.md)** - Branch strategy
 
----
+### 🧪 **Testing**
+- **[Test Data Summary](testing/TEST_DATA_SUMMARY.md)** - Test data and scenarios
 
-## 🚀 Getting Started
-
-### For Frontend Developers
-👉 **Start here:** [API Integration Documentation](./api-integration/)
-
-The API integration section provides everything you need to connect your frontend application to the Contestlet API, including authentication flows, contest management, and user entry handling.
-
-### For Backend Developers
-👉 **Main README:** [Project Root](../README.md)
-
-The main project README contains information about the backend API, database setup, deployment, and server configuration.
+### ⏰ **Timezone Handling**
+- **[Timezone Guide](TIMEZONE_GUIDE.md)** - Complete timezone implementation
 
 ---
 
-## 📖 What's Available
+## 🎯 **Quick Start**
 
-| Resource | Description | Best For |
-|----------|-------------|----------|
-| [Integration Guide](./api-integration/FRONTEND_INTEGRATION_GUIDE.md) | Complete step-by-step frontend integration | New developers |
-| [Quick Reference](./api-integration/API_QUICK_REFERENCE.md) | Compact endpoint reference | Experienced developers |
-| [JavaScript SDK](./api-integration/contestlet-sdk.js) | Drop-in SDK for web apps | All frontend projects |
-| [Interactive Demo](./api-integration/demo.html) | Working example page | Learning and testing |
+### **For Frontend Developers:**
+1. Read the **[Frontend Integration Guide](api-integration/FRONTEND_INTEGRATION_GUIDE.md)**
+2. Use the **[JavaScript SDK](api-integration/contestlet-sdk.js)**
+3. Check the **[API Quick Reference](api-integration/API_QUICK_REFERENCE.md)**
 
----
+### **For Backend Developers:**
+1. Review **[Deployment Guide](deployment/VERCEL_DEPLOYMENT_GUIDE.md)**
+2. Understand **[Database Setup](database/SUPABASE_ENVIRONMENT_SUCCESS.md)**
+3. Check **[Timezone Implementation](TIMEZONE_GUIDE.md)**
 
-## 🔧 Development Environment
-
-### API Server
-The Contestlet API should be running at:
-- **Development:** `http://localhost:8000`
-- **Documentation:** `http://localhost:8000/docs`
-
-### Frontend Integration
-Use any modern web framework:
-- ⚛️ React
-- 🟢 Vue.js
-- 🅰️ Angular
-- 📦 Vanilla JavaScript
+### **For DevOps:**
+1. Follow **[Vercel Deployment](deployment/VERCEL_DEPLOYMENT_GUIDE.md)**
+2. Set up **[Database Branching](database/SUPABASE_BRANCHING_SETUP.md)**
+3. Configure **[Environment Separation](database/ENVIRONMENT_SEPARATION_STATUS.md)**
 
 ---
 
-## 🎯 Quick Links
+## 🌍 **Live Environments**
 
-- 🏠 [Main Project](../README.md)
-- 🔗 [API Integration Docs](./api-integration/)
-- 📋 [API Reference](./api-integration/API_QUICK_REFERENCE.md)
-- 🛠️ [JavaScript SDK](./api-integration/contestlet-sdk.js)
-- 🎪 [Live Demo](./api-integration/demo.html)
+### **Production**
+- **URL**: `https://contestlet-f6b9oh0ag-matthew-reeds-projects-89c602d6.vercel.app`
+- **Database**: Supabase Production Branch
+- **Status**: ✅ Live
+
+### **Staging**  
+- **URL**: `https://contestlet-i7b9utrk0-matthew-reeds-projects-89c602d6.vercel.app`
+- **Database**: Supabase Staging Branch
+- **Status**: ✅ Ready for Testing
 
 ---
 
-Need help? Check the individual documentation sections or refer to the main project README for additional resources.
+## 🔧 **Development Workflow**
+
+```
+Local Development → Staging Branch → Production Branch
+      ↓                    ↓              ↓
+   SQLite/Local      Staging Database  Production Database
+```
+
+### **Git Workflow:**
+- `staging` branch → Auto-deploys to staging environment
+- `main` branch → Auto-deploys to production environment
+
+---
+
+## 📞 **Support**
+
+For questions about:
+- **API Integration** → Check `api-integration/` directory
+- **Deployment Issues** → Check `deployment/` directory  
+- **Database Problems** → Check `database/` directory
+- **Testing** → Check `testing/` directory
+
+---
+
+**Last Updated**: January 21, 2025  
+**Version**: 1.0 (Environment Separation Complete)

@@ -16,7 +16,7 @@ python-multipart==0.0.6
 
 # SMS & Communication
 twilio==8.10.0
-phonenumbers==8.13.24
+phonenumbers==8.13.26  # Updated version from staging
 
 # HTTP Requests
 requests==2.31.0
