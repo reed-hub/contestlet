@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, Float
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, Float, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database.database import Base
@@ -28,6 +28,9 @@ class Contest(Base):
     # Timezone metadata (for audit trail and admin context)
     created_timezone = Column(String(50), nullable=True)  # Admin's timezone when contest was created
     admin_user_id = Column(String(50), nullable=True)  # Admin who created the contest
+    
+    # Campaign import metadata
+    campaign_metadata = Column(JSON, nullable=True)  # Original one-sheet JSON and import data
     
     # Relationships
     entries = relationship("Entry", back_populates="contest")

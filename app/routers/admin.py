@@ -15,10 +15,12 @@ from app.schemas.admin import (
     WinnerNotificationRequest, WinnerNotificationResponse, NotificationLogResponse,
     ContestDeleteResponse, ContestDeletionSummary
 )
+from app.schemas.campaign_import import CampaignImportRequest, CampaignImportResponse
 from app.core.admin_auth import get_admin_user
 from app.core.sms_notification_service import sms_notification_service
 from app.core.rate_limiter import rate_limiter
 from app.models.notification import Notification
+from app.services.campaign_import_service import campaign_import_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -934,4 +936,67 @@ async def delete_contest(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete contest: {str(e)}"
+        )
+
+
+@router.post("/contests/import-one-sheet", response_model=CampaignImportResponse)
+async def import_campaign_one_sheet(
+    import_request: CampaignImportRequest,
+    admin_payload: dict = Depends(get_admin_user_jwt_only),
+    db: Session = Depends(get_db)
+):
+    """
+    Import a campaign one-sheet JSON into a new contest record.
+    
+    This endpoint allows admins to import predefined campaign configurations
+    directly into the contests table. The one-sheet JSON is parsed and mapped
+    to appropriate contest fields, with remaining data stored in metadata.
+    """
+    try:
+        # Get admin user ID from JWT payload
+        admin_user_id = admin_payload.get("phone", "unknown_admin")
+        
+        # Validate campaign data first
+        is_valid, validation_errors = campaign_import_service.validate_campaign_data(
+            import_request.campaign_json
+        )
+        
+        if not is_valid:
+            return CampaignImportResponse(
+                success=False,
+                message=f"Validation failed: {'; '.join(validation_errors)}",
+                warnings=validation_errors
+            )
+        
+        # Perform the import
+        success, contest, warnings, summary = campaign_import_service.import_campaign(
+            db=db,
+            import_request=import_request,
+            admin_user_id=admin_user_id
+        )
+        
+        if success and contest:
+            return CampaignImportResponse(
+                success=True,
+                contest_id=contest.id,
+                message="Campaign imported and contest created successfully",
+                warnings=warnings,
+                fields_mapped=summary.get('field_mappings_used', {}),
+                fields_stored_in_metadata=[
+                    'day', 'entry_type', 'messaging', 'category', 
+                    'target_audience', 'budget', 'expected_entries',
+                    'reward_logic', 'duration_days'
+                ]
+            )
+        else:
+            return CampaignImportResponse(
+                success=False,
+                message=f"Import failed: {'; '.join(warnings)}",
+                warnings=warnings
+            )
+            
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to import campaign: {str(e)}"
         )
