@@ -1,20 +1,27 @@
 # 📋 Contestlet API - Quick Reference
 
-## 🔗 Base URL
+**Complete API reference with 100% form support and SMS integration.**
+
+---
+
+## 🔗 **Base URLs**
 ```
 Development: http://localhost:8000
-Production: https://your-domain.com
+Staging:     https://contestlet-git-staging.vercel.app
+Production:  https://contestlet.vercel.app
 ```
 
-## 🔐 Authentication (Twilio Verify API)
+---
 
-### Request OTP
+## 🔐 **Authentication (Twilio Verify API)**
+
+### **Request OTP**
 ```bash
 POST /auth/request-otp
 Content-Type: application/json
 
 {
-  "phone": "18187958204"  # US phone number (10 digits)
+  "phone": "18187958204"  # US phone number (E.164 format)
 }
 
 # Response
@@ -24,14 +31,14 @@ Content-Type: application/json
 }
 ```
 
-### Verify OTP
+### **Verify OTP**
 ```bash
 POST /auth/verify-otp
 Content-Type: application/json
 
 {
   "phone": "18187958204",
-  "code": "123456"  # 6-digit code from SMS (or 123456 in mock mode)
+  "code": "123456"  # 6-digit code from SMS
 }
 
 # Success Response (Regular User)
@@ -46,461 +53,576 @@ Content-Type: application/json
 # Success Response (Admin User)
 {
   "success": true,
-  "message": "Phone verified successfully",
+  "message": "Phone verified successfully - Admin access granted",
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",  # JWT includes role="admin"
   "token_type": "bearer",
-  "user_id": 1
-}
-
-# Error Response
-{
-  "success": false,
-  "message": "Invalid verification code",
-  "access_token": null,
-  "token_type": "bearer",
-  "user_id": null
+  "user_id": 1,
+  "role": "admin"
 }
 ```
 
-### Get Current User Info
+### **Get Current User**
 ```bash
 GET /auth/me
-Authorization: Bearer <access_token>
+Authorization: Bearer <token>
 
-# Response (Regular User)
+# Response
 {
-  "user_id": 2,
-  "phone": "+15551234567",
-  "role": "user",
-  "authenticated": true
-}
-
-# Response (Admin User)
-{
-  "user_id": 1,
+  "id": 1,
   "phone": "+18187958204",
-  "role": "admin",
-  "authenticated": true
+  "created_at": "2024-01-15T10:30:00Z",
+  "role": "admin"  # Only present for admin users
 }
 ```
 
-### Legacy Phone Verification (DEPRECATED)
-```bash
-POST /auth/verify-phone
-Content-Type: application/json
+---
 
+## 🎯 **Contests (Public)**
+
+### **List Active Contests**
+```bash
+GET /contests/active?page=1&size=10
+
+# Response
 {
-  "phone": "18187958204"
+  "contests": [
+    {
+      "id": 1,
+      "name": "Summer Sweepstakes 2025",
+      "description": "Win amazing summer prizes!",
+      "location": "Boulder, CO",
+      "latitude": 40.0150,
+      "longitude": -105.2705,
+      "start_time": "2025-08-22T10:00:00Z",
+      "end_time": "2025-08-25T23:59:59Z",
+      "prize_description": "$500 Cash Prize",
+      "status": "active",  # upcoming, active, ended, complete
+      "created_at": "2025-01-15T10:00:00Z",
+      
+      # Advanced Configuration (NEW)
+      "contest_type": "sweepstakes",
+      "entry_method": "sms",
+      "winner_selection_method": "random",
+      "minimum_age": 21,
+      "max_entries_per_person": 5,
+      "total_entry_limit": 1000,
+      "consolation_offer": "20% discount code",
+      "geographic_restrictions": "US residents only",
+      "contest_tags": ["summer", "sweepstakes", "mobile"],
+      "promotion_channels": ["instagram", "facebook", "sms"]
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "size": 10,
+  "pages": 1
 }
 ```
 
-## 🎯 Contest Endpoints
-
-### Get Active Contests
+### **Find Nearby Contests**
 ```bash
-GET /contests/active?page=1&size=10&location=SF
+GET /contests/nearby?lat=40.0150&lng=-105.2705&radius=25&page=1&size=10
+
+# Response (same as active contests + distance_miles field)
+{
+  "contests": [
+    {
+      "id": 1,
+      "name": "Local Contest",
+      "distance_miles": 12.5,  # Distance from query point
+      # ... other contest fields
+    }
+  ]
+}
 ```
 
-### Find Nearby Contests
+### **Enter Contest**
 ```bash
-GET /contests/nearby?lat=37.7749&lng=-122.4194&radius=25
+POST /contests/1/enter
+Authorization: Bearer <token>
+
+# Response
+{
+  "id": 1,
+  "user_id": 2,
+  "contest_id": 1,
+  "created_at": "2025-01-15T14:30:00Z",
+  "message": "Successfully entered contest!"
+}
+
+# Error Response (Entry Limit Reached)
+{
+  "detail": "Maximum 5 entries per person allowed"
+}
+
+# Error Response (Contest Full)
+{
+  "detail": "Contest has reached maximum entry limit"
+}
 ```
 
-### Enter Contest
-```bash
-POST /contests/{contest_id}/enter
-Authorization: Bearer {token}
-```
+---
 
-### User's Entries
+## 📝 **Entries**
+
+### **Get User's Entries**
 ```bash
 GET /entries/me
-Authorization: Bearer {token}
+Authorization: Bearer <token>
+
+# Response
+{
+  "entries": [
+    {
+      "id": 1,
+      "contest_id": 1,
+      "contest_name": "Summer Sweepstakes",
+      "created_at": "2025-01-15T14:30:00Z",
+      "contest_status": "active",
+      "is_winner": false
+    }
+  ],
+  "total": 1
+}
 ```
 
-## 🛡️ Admin Endpoints
+---
 
-### Create Contest
+## 👑 **Admin Endpoints (JWT Required)**
+
+### **Create Contest (100% Form Support)**
 ```bash
 POST /admin/contests
-Authorization: Bearer {admin_token}
+Authorization: Bearer <admin-token>
 Content-Type: application/json
 
 {
-  "name": "Contest Name",
-  "description": "Contest description",
-  "location": "San Francisco, CA",
-  "latitude": 37.7749,
-  "longitude": -122.4194,
-  "start_time": "2025-08-20T10:00:00",
-  "end_time": "2025-08-27T10:00:00",
-  "prize_description": "Amazing prize",
-  "active": true,
+  # Basic Information
+  "name": "Complete Form Contest",
+  "description": "Testing all form fields",
+  "location": "Boulder, CO",
+  "latitude": 40.0150,
+  "longitude": -105.2705,
+  "start_time": "2025-08-22T10:00:00Z",
+  "end_time": "2025-08-25T23:59:59Z",
+  "prize_description": "$500 Cash Prize + Gift Cards",
+  
+  # Advanced Configuration (Phase 1)
+  "contest_type": "sweepstakes",  # general, sweepstakes, instant_win
+  "entry_method": "sms",          # sms, email, web_form
+  "winner_selection_method": "random",  # random, scheduled, instant
+  "minimum_age": 21,              # 13-100, COPPA compliance
+  "max_entries_per_person": 5,    # null = unlimited
+  "total_entry_limit": 1000,      # null = unlimited
+  "consolation_offer": "20% discount on next purchase",
+  "geographic_restrictions": "US residents only, excluding NY and FL",
+  "contest_tags": ["summer", "sweepstakes", "mobile", "retail"],
+  "promotion_channels": ["instagram", "facebook", "email", "sms", "website"],
+  
+  # SMS Templates (Phase 2)
+  "sms_templates": {
+    "entry_confirmation": "🎉 You're entered in {contest_name}! Prize: {prize_description}. Good luck!",
+    "winner_notification": "🏆 Congratulations! You won {prize_description}! Check email for claim instructions.",
+    "non_winner": "Thanks for entering {contest_name}! Here's your consolation offer: {consolation_offer}"
+  },
+  
+  # Official Rules (Required)
   "official_rules": {
-    "eligibility_text": "Must be 18+ and US resident",
-    "sponsor_name": "Your Company",
-    "start_date": "2025-08-20T10:00:00",
-    "end_date": "2025-08-27T10:00:00",
-    "prize_value_usd": 1000.0,
-    "terms_url": "https://yoursite.com/terms"
+    "eligibility_text": "Open to legal residents of the United States who are at least 21 years old.",
+    "sponsor_name": "Contestlet Demo Company",
+    "start_date": "2025-08-22T10:00:00Z",
+    "end_date": "2025-08-25T23:59:59Z",
+    "prize_value_usd": 500.00,
+    "terms_url": "https://contestlet.com/terms"
   }
-}
-```
-
-### Delete Contest
-```bash
-DELETE /admin/contests/{contest_id}
-Authorization: Bearer {admin_token}
-
-# Success Response (200)
-{
-  "status": "success",
-  "message": "Contest 'Summer Giveaway' deleted successfully",
-  "deleted_contest_id": 123,
-  "cleanup_summary": {
-    "entries_deleted": 45,
-    "notifications_deleted": 12,
-    "official_rules_deleted": 1,
-    "dependencies_cleared": 58
-  }
-}
-
-# Error Responses
-# 404 - Contest not found
-{
-  "detail": "Contest not found"
-}
-
-# 403 - Admin authentication required  
-{
-  "detail": "Not authenticated"
-}
-
-# 409 - Cannot delete active contest
-{
-  "detail": "Cannot delete active contest with 45 entries. Contest ends at 2024-07-31T23:59:59Z."
-}
-```
-
-### View All Contests
-```bash
-GET /admin/contests
-Authorization: Bearer {admin_token}
-
-# Response includes status field
-{
-  "id": 11,
-  "name": "Contest Name",
-  "active": false,
-  "start_time": "2024-01-01T10:00:00",
-  "end_time": "2024-01-02T10:00:00",
-  "status": "ended",  # ended, active, upcoming, inactive
-  "entry_count": 5
-}
-```
-
-### View Contest Entries
-```bash
-GET /admin/contests/{contest_id}/entries
-Authorization: Bearer {admin_token}
-```
-
-### Select Winner
-```bash
-POST /admin/contests/{contest_id}/select-winner
-Authorization: Bearer {admin_token}
-```
-
-### Notify Winner via SMS
-```bash
-POST /admin/contests/{contest_id}/notify-winner
-Authorization: Bearer {admin_jwt_token}  # ⚠️ JWT REQUIRED (not legacy token)
-Content-Type: application/json
-
-{
-  "entry_id": 12,
-  "message": "🎉 Congrats! You're the winner of our Coca-Cola Summer Contest!",
-  "test_mode": false  # Optional: true to simulate without sending SMS
 }
 
 # Success Response
 {
-  "success": true,
-  "message": "Winner notification sent successfully",
-  "entry_id": 12,
-  "contest_id": 1,
-  "winner_phone": "+1***8204",
-  "sms_status": "SMS notification sent successfully - SID: SM...",
-  "test_mode": false,
-  "notification_id": 5,
-  "twilio_sid": "SM1234567890abcdef...",
-  "notification_sent_at": "2025-08-20T04:20:45.480744"
-}
-
-# Rate Limited Response (429)
-{
-  "detail": "Too many SMS notifications. Please wait before sending another."
-}
-
-# Legacy Token Rejected (403)
-{
-  "detail": "SMS notifications require admin JWT authentication. Please authenticate via OTP."
+  "id": 1,
+  "name": "Complete Form Contest",
+  "status": "upcoming",
+  # ... all submitted fields returned
+  "entry_count": 0,
+  "official_rules": { /* official rules data */ },
+  "message": "Contest created successfully with official rules"
 }
 ```
 
-### View SMS Notification Logs
+### **List All Contests (Admin View)**
 ```bash
-GET /admin/notifications?contest_id=1&notification_type=winner&limit=50
-Authorization: Bearer {admin_token}
-
-# Query Parameters (all optional)
-# - contest_id: Filter by specific contest
-# - notification_type: Filter by type (winner, reminder, general)
-# - limit: Number of records (default: 50, max: 50)
-
-# Response
-[
-  {
-    "id": 5,
-    "contest_id": 1,
-    "user_id": 2,
-    "entry_id": 12,
-    "message": "🎉 Congrats! You're the winner!",
-    "notification_type": "winner",
-    "status": "sent",          # sent, failed, pending
-    "twilio_sid": "SM1234567890abcdef...",
-    "error_message": null,
-    "test_mode": false,
-    "sent_at": "2025-08-20T04:20:45.480744",
-    "admin_user_id": "1",
-    "contest_name": "Summer Contest",
-    "user_phone": "+1***8204"  # Masked for privacy
-  }
-]
-```
-
-## 🌍 Timezone Management
-
-### Get Supported Timezones
-```bash
-GET /admin/profile/timezones
+GET /admin/contests?page=1&size=10
+Authorization: Bearer <admin-token>
 
 # Response
 {
-  "timezones": [
+  "contests": [
     {
-      "timezone": "America/New_York",
-      "display_name": "Eastern Time (ET)",
-      "current_time": "2024-01-15T14:30:00-05:00",
-      "utc_offset": "-05:00",
-      "is_dst": false
-    },
-    {
-      "timezone": "America/Los_Angeles", 
-      "display_name": "Pacific Time (PT)",
-      "current_time": "2024-01-15T11:30:00-08:00",
-      "utc_offset": "-08:00",
-      "is_dst": false
+      "id": 1,
+      "name": "Summer Sweepstakes",
+      "status": "active",  # computed status
+      "entry_count": 25,
+      "winner_phone": null,
+      "winner_selected_at": null,
+      # ... all contest fields including advanced configuration
+      "official_rules": { /* official rules */ }
     }
   ],
-  "default_timezone": "UTC"
+  "total": 1,
+  "page": 1,
+  "size": 10,
+  "pages": 1
 }
 ```
 
-### Set Admin Timezone Preferences
+### **Update Contest**
 ```bash
-POST /admin/profile/timezone
-Authorization: Bearer {admin_jwt}
+PUT /admin/contests/1
+Authorization: Bearer <admin-token>
 Content-Type: application/json
 
 {
-  "timezone": "America/New_York",
-  "timezone_auto_detect": false
+  "name": "Updated Contest Name",
+  "prize_description": "Updated prize",
+  "max_entries_per_person": 10,  # Update entry limits
+  "sms_templates": {
+    "entry_confirmation": "Updated entry message"
+  },
+  "official_rules": {
+    "prize_value_usd": 750.00
+  }
+}
+
+# Response: Updated contest object
+```
+
+### **Delete Contest**
+```bash
+DELETE /admin/contests/1
+Authorization: Bearer <admin-token>
+
+# Response
+{
+  "success": true,
+  "message": "Contest deleted successfully",
+  "contest_id": 1,
+  "deletion_summary": {
+    "entries_deleted": 5,
+    "notifications_deleted": 3,
+    "sms_templates_deleted": 2,
+    "official_rules_deleted": 1
+  }
+}
+
+# Error Response (Contest Still Running)
+{
+  "detail": "Cannot delete running contest with 25 entries. Contest ends at 2025-08-25T23:59:59Z."
+}
+```
+
+### **Select Contest Winner**
+```bash
+POST /admin/contests/1/select-winner
+Authorization: Bearer <admin-token>
+
+# Response
+{
+  "success": true,
+  "message": "Winner selected successfully",
+  "winner": {
+    "entry_id": 15,
+    "user_phone": "+18187958204",
+    "selected_at": "2025-01-15T16:00:00Z"
+  },
+  "total_entries": 42
+}
+```
+
+### **Send Winner Notification**
+```bash
+POST /admin/contests/1/notify-winner
+Authorization: Bearer <admin-token>
+Content-Type: application/json
+
+{
+  "test_mode": false,  # true for testing without sending SMS
+  "custom_message": "Congratulations! You won our contest!"  # optional override
 }
 
 # Response
 {
-  "admin_user_id": "admin_123",
-  "timezone": "America/New_York",
-  "timezone_auto_detect": false,
-  "created_at": "2024-01-15T19:30:00Z",
-  "updated_at": "2024-01-15T19:30:00Z"
+  "success": true,
+  "message": "Winner notification sent successfully",
+  "recipient": "+18187958204",
+  "sms_content": "🏆 Congratulations! You won $500 Cash Prize! Check email for claim instructions.",
+  "notification_id": 123
 }
 ```
 
-### Get Admin Timezone Preferences  
+### **View Contest Entries**
 ```bash
-GET /admin/profile/timezone
-Authorization: Bearer {admin_jwt}
-
-# Response: Same format as POST /admin/profile/timezone
-```
-
-### Update Admin Timezone Preferences
-```bash
-PUT /admin/profile/timezone
-Authorization: Bearer {admin_jwt}
-Content-Type: application/json
-
-{
-  "timezone": "America/Los_Angeles"  # Only update timezone, keep auto_detect
-}
-
-# Response: Updated admin profile
-```
-
-### Reset Timezone Preferences
-```bash
-DELETE /admin/profile/timezone
-Authorization: Bearer {admin_jwt}
+GET /admin/contests/1/entries?page=1&size=20
+Authorization: Bearer <admin-token>
 
 # Response
 {
-  "message": "Timezone preferences reset to defaults"
+  "entries": [
+    {
+      "id": 1,
+      "user_phone": "+18187958204",
+      "created_at": "2025-01-15T14:30:00Z",
+      "is_winner": true,
+      "winner_selected_at": "2025-01-15T16:00:00Z"
+    }
+  ],
+  "total": 1,
+  "contest_name": "Summer Sweepstakes",
+  "contest_status": "complete"
 }
 ```
 
-### 🛑 SMS Notification Security
-- **Rate Limited**: 5 SMS per 5 minutes per admin
-- **JWT Required**: Must use admin JWT from OTP auth (legacy tokens rejected)
-- **Entry Validation**: User must have actually entered the contest
-- **Audit Trail**: All SMS attempts logged to database
+### **Import Campaign One-Sheet**
+```bash
+POST /admin/contests/import-one-sheet
+Authorization: Bearer <admin-token>
+Content-Type: application/json
 
-### 📊 Contest Status Values
-- **"ended"**: Contest has finished (past end_time)
-- **"active"**: Contest is currently running
-- **"upcoming"**: Contest hasn't started yet (future start_time)  
-- **"inactive"**: Contest is manually disabled but hasn't ended
+{
+  "campaign_data": {
+    "name": "Summer Flash Sale Contest",
+    "description": "Win big with our summer promotion!",
+    "reward_logic": {
+      "winner_reward": "$100 Gift Card"
+    },
+    "consolation_offer": "15% off next purchase",
+    "non_winner_sms": "Thanks for playing! Use code SUMMER15 for 15% off.",
+    "promotion_channels": ["instagram", "email", "sms"],
+    "activation_hooks": ["contest_start", "winner_selected"]
+  },
+  "location": "Denver, CO",
+  "latitude": 39.7392,
+  "longitude": -104.9903,
+  "start_time": "2025-09-01T10:00:00Z",
+  "duration_days": 7,
+  "admin_user_id": "admin_123"
+}
 
-### 🌍 How Timezone Handling Works
+# Response
+{
+  "success": true,
+  "contest_id": 15,
+  "message": "Campaign imported successfully as contest",
+  "warnings": [],
+  "contest_preview": {
+    "name": "Summer Flash Sale Contest",
+    "prize_description": "$100 Gift Card",
+    "status": "upcoming"
+  }
+}
+```
 
-#### **Core Principle: UTC Storage, Local Display**
-- **Database**: All times stored as UTC
-- **Admin Interface**: Times displayed in admin's preferred timezone
-- **API**: Always sends/receives UTC times with timezone metadata
+### **View SMS Notification Logs**
+```bash
+GET /admin/notifications?page=1&size=20&contest_id=1&notification_type=winner_notification
+Authorization: Bearer <admin-token>
 
-#### **Contest Creation Flow**
+# Response
+{
+  "notifications": [
+    {
+      "id": 123,
+      "contest_id": 1,
+      "contest_name": "Summer Sweepstakes",
+      "recipient_phone": "+18187958204",
+      "notification_type": "winner_notification",
+      "message_content": "🏆 Congratulations! You won $500 Cash Prize!",
+      "sent_at": "2025-01-15T16:05:00Z",
+      "delivery_status": "delivered"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "size": 20
+}
+```
+
+---
+
+## 📱 **SMS Template Variables**
+
+### **Available Variables**
 ```javascript
-// 1. Admin enters time in their timezone
-Admin input: "2024-01-15 14:30" (2:30 PM Eastern)
+// Entry Confirmation Templates
+{contest_name}        // "Summer Sweepstakes"
+{prize_description}   // "$500 Cash Prize"
+{end_time}           // "August 25, 2025 at 11:59 PM"
+{sponsor_name}       // "Contestlet Demo Company"
 
-// 2. Frontend converts to UTC for API
-API payload: {
-  "start_time": "2024-01-15T19:30:00Z"  // UTC
+// Winner Notification Templates
+{contest_name}        // Contest name
+{prize_description}   // Prize details
+{winner_name}        // Winner's name (if available)
+{claim_instructions} // How to claim prize
+{sponsor_name}       // Contest sponsor
+{terms_url}          // Terms and conditions URL
+
+// Non-Winner Templates
+{contest_name}        // Contest name
+{consolation_offer}   // "20% discount code"
+{sponsor_name}       // Contest sponsor
+{next_contest_info}  // Information about upcoming contests
+```
+
+### **Template Examples**
+```javascript
+// Entry Confirmation
+"🎉 You're entered in {contest_name}! Prize: {prize_description}. Drawing on {end_time}. Good luck!"
+
+// Winner Notification
+"🏆 WINNER! Congratulations! You won {prize_description} in {contest_name}! Check your email for claim instructions."
+
+// Non-Winner
+"Thanks for entering {contest_name}! You didn't win this time, but here's your consolation offer: {consolation_offer}"
+```
+
+---
+
+## 🔧 **Form Field Mapping**
+
+### **✅ 100% Supported Form Fields**
+
+| Frontend Field | API Field | Type | Validation |
+|----------------|-----------|------|------------|
+| **Contest Name** | `name` | string | Required |
+| **Description** | `description` | string | Optional |
+| **Location** | `location` | string | Optional |
+| **Prize Description** | `prize_description` | string | Optional |
+| **Prize Value** | `official_rules.prize_value_usd` | number | ≥0, required |
+| **Eligibility** | `official_rules.eligibility_text` | string | Required |
+| **Start Date/Time** | `start_time` | datetime | Required, ISO format |
+| **End Date/Time** | `end_time` | datetime | Required, > start_time |
+| **Contest Type** | `contest_type` | enum | general, sweepstakes, instant_win |
+| **Entry Method** | `entry_method` | enum | sms, email, web_form |
+| **Winner Selection** | `winner_selection_method` | enum | random, scheduled, instant |
+| **Minimum Age** | `minimum_age` | integer | 13-100, COPPA compliance |
+| **Max Entries/Person** | `max_entries_per_person` | integer | ≥1 or null |
+| **Total Entry Limit** | `total_entry_limit` | integer | ≥1 or null |
+| **Consolation Offer** | `consolation_offer` | string | Optional |
+| **Geographic Restrictions** | `geographic_restrictions` | string | Optional |
+| **Contest Tags** | `contest_tags` | array | Optional, comma-separated |
+| **Promotion Channels** | `promotion_channels` | array | Optional, checkboxes |
+| **Sponsor Name** | `official_rules.sponsor_name` | string | Required |
+| **Terms URL** | `official_rules.terms_url` | string | Optional, valid URL |
+| **Entry Confirmation SMS** | `sms_templates.entry_confirmation` | string | ≤1600 chars |
+| **Winner Notification SMS** | `sms_templates.winner_notification` | string | ≤1600 chars |
+| **Non-Winner SMS** | `sms_templates.non_winner` | string | ≤1600 chars |
+
+---
+
+## ⚠️ **Error Responses**
+
+### **Common Error Formats**
+```javascript
+// Validation Error
+{
+  "detail": [
+    {
+      "loc": ["body", "minimum_age"],
+      "msg": "Minimum age cannot be less than 13 for legal compliance",
+      "type": "value_error"
+    }
+  ]
 }
 
-// 3. Backend adds timezone metadata
-Stored contest: {
-  "start_time": "2024-01-15T19:30:00Z",     // UTC for storage
-  "created_timezone": "America/New_York",    // Admin's timezone context
-  "admin_user_id": "admin_123"               // Who created it
+// Authentication Error
+{
+  "detail": "Could not validate credentials"
+}
+
+// Business Logic Error
+{
+  "detail": "Maximum 5 entries per person allowed"
+}
+
+// Rate Limiting Error
+{
+  "detail": "Too many OTP requests. Try again in 4 minutes and 30 seconds.",
+  "retry_after": 270
 }
 ```
 
-#### **Admin Timezone Workflow**
-1. **Set preferences**: Choose timezone in `/admin/profile`
-2. **Create contests**: Enter times in your timezone
-3. **View contests**: Times display in your timezone
-4. **System handles conversion**: UTC storage + timezone context
+### **HTTP Status Codes**
+- **200**: Success
+- **201**: Created
+- **400**: Bad Request (validation error)
+- **401**: Unauthorized (invalid/missing token)
+- **403**: Forbidden (insufficient permissions)
+- **404**: Not Found
+- **409**: Conflict (business rule violation)
+- **422**: Unprocessable Entity (validation error)
+- **429**: Too Many Requests (rate limited)
+- **500**: Internal Server Error
 
-#### **Supported Timezones**
-- **US**: Eastern, Central, Mountain, Pacific, Arizona, Alaska, Hawaii
-- **International**: UTC, GMT, CET, JST, CST, AEST
-- **Canada**: Eastern, Central, Mountain, Pacific
+---
 
-#### **Important Notes**
-- ⚠️ **Frontend must convert to UTC** before sending to API
-- ⚠️ **Always include timezone metadata** in contest responses
-- ⚠️ **Handle daylight saving time** transitions properly
-- ⚠️ **Validate timezone identifiers** before API calls
+## 🌍 **Environment-Specific Behavior**
 
-## 📊 Response Codes
+### **Development**
+- **SMS**: Mock OTP (code: 123456)
+- **Database**: Local Supabase or SQLite
+- **CORS**: Localhost origins enabled
 
-| Code | Meaning |
-|------|---------|
-| 200 | Success |
-| 400 | Bad Request (invalid data) |
-| 401 | Unauthorized (invalid/missing token) |
-| 403 | Forbidden (admin access required) |
-| 404 | Not Found |
-| 409 | Conflict (duplicate entry) |
-| 422 | Validation Error |
-| 429 | Rate Limited |
-| 500 | Server Error |
+### **Staging**
+- **SMS**: Real Twilio (whitelist enabled)
+- **Database**: Supabase staging branch
+- **URL**: https://contestlet-git-staging.vercel.app
 
-## 🔑 Admin Authentication
+### **Production**
+- **SMS**: Full Twilio integration
+- **Database**: Supabase production branch
+- **URL**: https://contestlet.vercel.app
 
-### OTP-Based Admin Access (Recommended)
+---
+
+## 🎯 **Quick Testing**
+
+### **Test Contest Creation (All Fields)**
 ```bash
-# 1. Request OTP with admin phone number
-POST /auth/request-otp
-{
-  "phone": "18187958204"  # Must be configured as admin phone
-}
-
-# 2. Verify OTP to get admin JWT
-POST /auth/verify-otp  
-{
-  "phone": "18187958204",
-  "code": "123456"
-}
-# Returns JWT with role="admin"
-
-# 3. Use admin JWT for all admin endpoints
-Authorization: Bearer <admin_jwt_token>
+curl -X POST "https://contestlet.vercel.app/admin/contests" \
+  -H "Authorization: Bearer <admin-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Test Contest",
+    "contest_type": "sweepstakes",
+    "entry_method": "sms",
+    "minimum_age": 21,
+    "max_entries_per_person": 5,
+    "sms_templates": {
+      "entry_confirmation": "You are entered! Good luck!"
+    },
+    "official_rules": {
+      "eligibility_text": "21+ US residents",
+      "sponsor_name": "Test Company",
+      "start_date": "2025-08-22T10:00:00Z",
+      "end_date": "2025-08-25T23:59:59Z",
+      "prize_value_usd": 100
+    }
+  }'
 ```
 
-### Legacy Admin Token (Deprecated)
-```
-Authorization: Bearer contestlet-admin-super-secret-token-change-in-production
-```
+### **Test OTP Flow**
+```bash
+# 1. Request OTP
+curl -X POST "https://contestlet.vercel.app/auth/request-otp" \
+  -H "Content-Type: application/json" \
+  -d '{"phone": "18187958204"}'
 
-### Configuration
-```env
-# Add admin phone numbers to .env
-ADMIN_PHONES=+18187958204,+15551234567
-```
-
-## 📱 SMS Notifications
-
-### Twilio Configuration (SMS)
-```env
-# Required for SMS notifications
-TWILIO_PHONE_NUMBER=+15551234567  # Your Twilio phone number
-TWILIO_ACCOUNT_SID=AC...           # Same as OTP verification
-TWILIO_AUTH_TOKEN=...              # Same as OTP verification
-USE_MOCK_SMS=true                  # Set to false for production SMS
+# 2. Verify OTP (use code from SMS or 123456 in development)
+curl -X POST "https://contestlet.vercel.app/auth/verify-otp" \
+  -H "Content-Type: application/json" \
+  -d '{"phone": "18187958204", "code": "123456"}'
 ```
 
-## 📱 Phone Format (Twilio Verify)
-- **US numbers only**: `5551234567`, `15551234567`, `+15551234567`
-- **Auto-formatting**: API accepts various formats, converts to E.164
-- **Validation**: Uses `phonenumbers` library for robust validation
-- **Test number**: `18187958204` (for development)
+---
 
-## 📍 Geolocation
-- Latitude: -90 to 90
-- Longitude: -180 to 180
-- Radius: 0.1 to 100 miles
-
-## ⏱️ Rate Limits (Twilio Protected)
-- **OTP requests**: 5 per 5 minutes per phone number
-- **Automatic blocking**: Returns 429 status after limit
-- **Reset time**: Provided in `Retry-After` header
-- **General API**: No specific limits (reasonable use)
-
-## 🧪 Development Mode
-- **Mock SMS**: `USE_MOCK_SMS=true` (default)
-- **Test code**: `123456` (always works in mock mode)
-- **Real SMS**: Set `USE_MOCK_SMS=false` for production
-- **Twilio logs**: Check server console for verification attempts
-- **Database**: Auto-creates on first run
-- **Interactive docs**: `/docs`
-
-## 🔧 Twilio Configuration
-```env
-TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-TWILIO_AUTH_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-TWILIO_VERIFY_SERVICE_SID=VAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-USE_MOCK_SMS=true  # false for production SMS
-```
+**📋 This API reference covers all endpoints with 100% form support and comprehensive SMS integration. All features are production-ready.** ✨
