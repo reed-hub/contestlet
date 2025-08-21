@@ -7,15 +7,23 @@ class RewardLogic(BaseModel):
     """Schema for reward logic in campaign one-sheets"""
     type: str = Field(..., description="Type of reward logic (e.g., 'random_winner', 'daily_winner')")
     winner_reward: str = Field(..., description="Description of what the winner receives")
+    consolation_offer: Optional[str] = Field(None, description="Offer for non-winners")
     additional_params: Optional[Dict[str, Any]] = Field(default=None, description="Additional reward parameters")
+    
+    class Config:
+        extra = "allow"  # Allow additional fields
 
 
 class CampaignMessaging(BaseModel):
     """Schema for messaging templates in campaign one-sheets"""
     initial_sms: Optional[str] = Field(None, description="SMS sent when user enters contest")
     winner_sms: Optional[str] = Field(None, description="SMS sent to winner")
+    non_winner_sms: Optional[str] = Field(None, description="SMS sent to non-winners")
     reminder_sms: Optional[str] = Field(None, description="SMS sent as reminder")
     follow_up_sms: Optional[str] = Field(None, description="Follow-up SMS after contest")
+    
+    class Config:
+        extra = "allow"  # Allow additional messaging fields
 
 
 class CampaignOneSheet(BaseModel):
@@ -33,6 +41,13 @@ class CampaignOneSheet(BaseModel):
     target_audience: Optional[str] = Field(None, description="Target audience description")
     budget: Optional[float] = Field(None, description="Campaign budget")
     expected_entries: Optional[int] = Field(None, description="Expected number of entries")
+    
+    # Marketing and activation fields
+    promotion_channels: Optional[list[str]] = Field(None, description="Channels used for promotion")
+    activation_hooks: Optional[list[str]] = Field(None, description="Activation hooks and triggers")
+    
+    class Config:
+        extra = "allow"  # Allow additional fields for flexible campaign data
 
 
 class CampaignImportRequest(BaseModel):
