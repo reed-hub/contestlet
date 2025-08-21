@@ -54,8 +54,14 @@ def get_environment_config() -> Dict[str, Any]:
             "database_url": "sqlite:///./contestlet_dev.db",
             "cors_origins": [
                 "http://localhost:3000",
+                "http://localhost:3001", 
+                "http://localhost:3002",  # Frontend development port
+                "http://localhost:3003",
                 "http://localhost:8000",
                 "http://127.0.0.1:3000",
+                "http://127.0.0.1:3001",
+                "http://127.0.0.1:3002",  # Frontend development port
+                "http://127.0.0.1:3003",
                 "http://127.0.0.1:8000"
             ]
         })
