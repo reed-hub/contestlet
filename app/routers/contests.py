@@ -23,14 +23,15 @@ async def get_active_contests(
     db: Session = Depends(get_db)
 ):
     """Get list of currently active contests with optional location filtering"""
-    current_time = datetime.utcnow()
+    from app.core.datetime_utils import utc_now
+    current_time = utc_now()
     
-    # Base query for active contests
+    # Base query for currently active contests (time-based, no winner selected)
     query = db.query(Contest).filter(
         and_(
-            Contest.active == True,
             Contest.start_time <= current_time,
-            Contest.end_time > current_time
+            Contest.end_time > current_time,
+            Contest.winner_selected_at.is_(None)  # No winner selected yet
         )
     )
     
@@ -70,14 +71,15 @@ async def get_nearby_contests(
             detail="Invalid latitude or longitude coordinates"
         )
     
-    current_time = datetime.utcnow()
+    from app.core.datetime_utils import utc_now
+    current_time = utc_now()
     
-    # Get all active contests with geolocation data
+    # Get all currently active contests with geolocation data (time-based, no winner selected)
     base_query = db.query(Contest).filter(
         and_(
-            Contest.active == True,
             Contest.start_time <= current_time,
             Contest.end_time > current_time,
+            Contest.winner_selected_at.is_(None),  # No winner selected yet
             Contest.latitude.isnot(None),
             Contest.longitude.isnot(None)
         )
@@ -135,7 +137,7 @@ async def enter_contest(
     db: Session = Depends(get_db)
 ):
     """Enter the current user into a contest"""
-    # Check if contest exists and is active
+    # Check if contest exists
     contest = db.query(Contest).filter(Contest.id == contest_id).first()
     if not contest:
         raise HTTPException(
@@ -143,14 +145,10 @@ async def enter_contest(
             detail="Contest not found"
         )
     
-    if not contest.active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Contest is not active"
-        )
+    # Check if contest is currently accepting entries (time-based check)
+    from app.core.datetime_utils import utc_now
+    current_time = utc_now()
     
-    # Check if contest is currently running
-    current_time = datetime.utcnow()
     if current_time < contest.start_time:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -161,6 +159,13 @@ async def enter_contest(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Contest has ended"
+        )
+    
+    # Check if winner already selected (contest complete)
+    if contest.winner_selected_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Contest is complete - winner already selected"
         )
     
     # Check if user has already entered this contest (prevent duplicates)

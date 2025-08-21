@@ -177,24 +177,8 @@ async def update_contest(
             official_rules = OfficialRules(contest_id=contest.id, **rules_data)
             db.add(official_rules)
     
-    # If activating contest, validate compliance
-    if contest_update.active and contest.active != contest_update.active:
-        contest_dict = {
-            "name": contest.name,
-            "start_time": contest.start_time,
-            "end_time": contest.end_time,
-            "prize_description": contest.prize_description
-        }
-        rules_dict = {}
-        if contest.official_rules:
-            rules_dict = {
-                "eligibility_text": contest.official_rules.eligibility_text,
-                "sponsor_name": contest.official_rules.sponsor_name,
-                "start_date": contest.official_rules.start_date,
-                "end_date": contest.official_rules.end_date,
-                "prize_value_usd": contest.official_rules.prize_value_usd
-            }
-        validate_contest_compliance(contest_dict, rules_dict)
+# Note: Contest compliance is validated at creation time
+    # Status is now automatically computed based on time and winner selection
     
     db.commit()
     db.refresh(contest)
@@ -854,20 +838,16 @@ async def delete_contest(
     entry_count = db.query(Entry).filter(Entry.contest_id == contest_id).count()
     notification_count = db.query(Notification).filter(Notification.contest_id == contest_id).count()
     
-    # Check if contest is currently active with recent entries
-    if contest.active and entry_count > 0:
-        # Get the most recent entry to check timing
-        recent_entry = db.query(Entry).filter(Entry.contest_id == contest_id)\
-                                    .order_by(Entry.created_at.desc()).first()
-        
-        # Allow deletion if contest is past end time or entries are old
-        now = datetime.utcnow()
-        if contest.end_time > now:
-            # Contest is still active and running
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Cannot delete active contest with {entry_count} entries. Contest ends at {contest.end_time}."
-            )
+    # Check if contest is currently accepting entries (time-based check)
+    from app.core.datetime_utils import utc_now
+    now = utc_now()
+    
+    if entry_count > 0 and contest.end_time > now and not contest.winner_selected_at:
+        # Contest is still running and accepting entries
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot delete running contest with {entry_count} entries. Contest ends at {contest.end_time}."
+        )
     
     # Warning for contests with sent winner notifications
     winner_notifications = db.query(Notification).filter(

@@ -20,7 +20,7 @@ class AdminContestUpdate(BaseModel):
     start_time: Optional[datetime] = Field(None, description="Contest start time")
     end_time: Optional[datetime] = Field(None, description="Contest end time")
     prize_description: Optional[str] = Field(None, description="Prize description")
-    active: Optional[bool] = Field(None, description="Whether the contest is active")
+# Note: Active status is now computed automatically based on start/end times and winner selection
     official_rules: Optional[OfficialRulesUpdate] = Field(None, description="Official rules updates")
 
     @validator('latitude')
@@ -63,13 +63,13 @@ class AdminContestResponse(BaseModel):
     admin_user_id: Optional[str] = Field(None, description="Admin who created the contest")
     
     def __init__(self, **data):
-        # Compute status before creating the object
+        # Compute status before creating the object based purely on time
         if 'status' not in data:
             from app.core.datetime_utils import utc_now
             now = utc_now()
-            active = data.get('active', True)
             start_time = data.get('start_time')
             end_time = data.get('end_time')
+            winner_selected_at = data.get('winner_selected_at')
             
             # Make datetime objects timezone-aware for comparison if they aren't already
             if start_time and start_time.tzinfo is None:
@@ -79,20 +79,15 @@ class AdminContestResponse(BaseModel):
                 from datetime import timezone
                 end_time = end_time.replace(tzinfo=timezone.utc)
             
-            if not active:
-                # If manually set to inactive, check if it has ended
-                if end_time and end_time <= now:
-                    data['status'] = "ended"
-                else:
-                    data['status'] = "inactive"
+            # Simplified time-based status calculation
+            if winner_selected_at:
+                data['status'] = "complete"
+            elif end_time and end_time <= now:
+                data['status'] = "ended"
+            elif start_time and start_time > now:
+                data['status'] = "upcoming"
             else:
-                # If active, check if it's actually started/ended
-                if start_time and start_time > now:
-                    data['status'] = "upcoming"
-                elif end_time and end_time <= now:
-                    data['status'] = "ended"
-                else:
-                    data['status'] = "active"
+                data['status'] = "active"
         
         super().__init__(**data)
     

@@ -73,8 +73,7 @@ export const ImportCampaignModal = ({ isOpen, onClose, onSuccess }) => {
   const [campaignData, setCampaignData] = useState(null);
   const [overrides, setOverrides] = useState({
     location: '',
-    start_time: '',
-    active: false
+    start_time: ''
   });
   
   const handleFileUpload = (event) => {
@@ -218,18 +217,7 @@ export const ImportCampaignModal = ({ isOpen, onClose, onSuccess }) => {
                     />
                   </div>
                   
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="active"
-                      checked={overrides.active}
-                      onChange={(e) => setOverrides(prev => ({ ...prev, active: e.target.checked }))}
-                      className="mr-2"
-                    />
-                    <label htmlFor="active" className="text-sm font-medium text-gray-700">
-                      Make contest active immediately
-                    </label>
-                  </div>
+                  {/* Note: Active status is now automatically computed based on start/end times */}
                 </div>
               </div>
               

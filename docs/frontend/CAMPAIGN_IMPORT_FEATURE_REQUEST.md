@@ -49,8 +49,7 @@ Create a modal/dialog with the following sections:
 
 3. **Override Options**
    - Location input field (optional override)
-   - Start time picker (optional override) 
-   - Active toggle (default: false)
+   - Start time picker (optional override)
    - Admin user ID field (auto-populated from auth)
 
 **Modal Footer:**
@@ -97,7 +96,6 @@ interface CampaignImportRequest {
   location?: string;           // Optional override
   start_time?: string;         // Optional override (ISO format)
   admin_user_id?: string;      // Optional override
-  active?: boolean;            // Optional override
   latitude?: number;           // Optional override
   longitude?: number;          // Optional override
 }
@@ -150,8 +148,7 @@ const ImportCampaignModal = ({ isOpen, onClose }) => {
   const [jsonContent, setJsonContent] = useState('');
   const [overrides, setOverrides] = useState({
     location: '',
-    start_time: '',
-    active: false
+    start_time: ''
   });
   const [isImporting, setIsImporting] = useState(false);
   

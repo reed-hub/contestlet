@@ -69,7 +69,7 @@ class CampaignImportService:
                 start_time=start_time,
                 end_time=end_time,
                 prize_description=contest_data.get('prize_description', ''),
-                active=import_request.active or False,
+# Note: Active status is now computed automatically based on start/end times
                 admin_user_id=admin_user_id or import_request.admin_user_id,
                 campaign_metadata=metadata,
                 created_at=utc_now()
