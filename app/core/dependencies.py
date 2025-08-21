@@ -19,21 +19,30 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     
-    payload = verify_token(credentials.credentials)
-    if payload is None:
-        raise credentials_exception
-    
-    user_id: str = payload.get("sub")
-    if user_id is None:
-        raise credentials_exception
-    
     try:
-        user_id = int(user_id)
-    except ValueError:
-        raise credentials_exception
+        payload = verify_token(credentials.credentials)
+        if payload is None:
+            raise credentials_exception
+        
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+        
+        try:
+            user_id = int(user_id)
+        except ValueError:
+            raise credentials_exception
+        
+        user = db.query(User).filter(User.id == user_id).first()
+        if user is None:
+            raise credentials_exception
+        
+        return user
     
-    user = db.query(User).filter(User.id == user_id).first()
-    if user is None:
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 401) as-is
+        raise
+    except Exception as e:
+        # Convert any other exceptions to 401 to prevent 500 errors
+        print(f"🚨 JWT validation error: {e}")
         raise credentials_exception
-    
-    return user

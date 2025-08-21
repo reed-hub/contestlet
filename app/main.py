@@ -35,6 +35,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add exception handler to ensure CORS headers are included even for 500 errors
+from fastapi import Request
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+
+@app.exception_handler(500)
+async def internal_server_error_handler(request: Request, exc: Exception):
+    """Ensure CORS headers are included even for 500 errors"""
+    response = JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"}
+    )
+    
+    # Get origin from request
+    origin = request.headers.get("origin")
+    if origin and origin in env_config.get("cors_origins", []):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+    
+    return response
+
 # Include routers
 app.include_router(auth_router)
 app.include_router(contests_router)
