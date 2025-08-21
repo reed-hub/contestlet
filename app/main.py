@@ -65,6 +65,27 @@ async def health_check():
     }
 
 
+@app.get("/manifest.json")
+async def get_manifest():
+    """PWA manifest file for frontend compatibility"""
+    return {
+        "name": "Contestlet",
+        "short_name": "Contestlet",
+        "description": "Micro sweepstakes contests platform",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#ffffff",
+        "theme_color": "#000000",
+        "icons": [
+            {
+                "src": "/favicon.ico",
+                "sizes": "64x64 32x32 24x24 16x16",
+                "type": "image/x-icon"
+            }
+        ]
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
