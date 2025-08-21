@@ -71,8 +71,12 @@ def get_environment_config() -> Dict[str, Any]:
                 "+18187958204"   # Your admin number
             ],
             "cors_origins": [
+                "https://staging-app.contestlet.com",  # Staging custom domain
                 "https://contestlet-frontend-staging.vercel.app",
-                "https://staging.contestlet.com"
+                "https://contestlet-frontend-fd6p132ip-matthew-reeds-projects-89c602d6.vercel.app",  # Current staging URL
+                "https://staging.contestlet.com",
+                "http://localhost:3000",  # Local development
+                "http://localhost:3002"   # Local development alt port
             ]
         })
     
@@ -82,9 +86,10 @@ def get_environment_config() -> Dict[str, Any]:
             "log_level": "WARNING",
             "use_mock_sms": False,
             "cors_origins": [
-                "https://contestlet-frontend.vercel.app",
-                "https://app.contestlet.com",
-                "https://contestlet.com"
+                "https://app.contestlet.com",  # Production custom domain
+                "https://contestlet.com",      # Root domain redirect
+                "https://contestlet-frontend.vercel.app",  # Vercel production
+                "https://contestlet-frontend-production.vercel.app"  # Vercel production variant
             ]
         })
     
