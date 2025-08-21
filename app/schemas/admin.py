@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional, List
 from .contest import ContestBase
 from .official_rules import OfficialRulesCreate, OfficialRulesUpdate, OfficialRulesResponse
+from .sms_template import SMSTemplateDict
 
 
 class AdminContestCreate(ContestBase):
@@ -24,6 +25,9 @@ class AdminContestCreate(ContestBase):
     geographic_restrictions: Optional[str] = Field(None, description="Geographic limitations or restrictions")
     contest_tags: Optional[List[str]] = Field(None, description="Tags for contest organization and filtering")
     promotion_channels: Optional[List[str]] = Field(None, description="Promotion channels used for marketing")
+    
+    # SMS Templates (Phase 2 form support)
+    sms_templates: Optional[SMSTemplateDict] = Field(None, description="Custom SMS message templates")
     
     @validator('contest_type')
     def validate_contest_type(cls, v):

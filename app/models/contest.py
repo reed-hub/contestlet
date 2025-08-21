@@ -52,3 +52,4 @@ class Contest(Base):
     entries = relationship("Entry", back_populates="contest")
     official_rules = relationship("OfficialRules", back_populates="contest", uselist=False)
     notifications = relationship("Notification", back_populates="contest")
+    sms_templates = relationship("SMSTemplate", back_populates="contest")

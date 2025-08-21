@@ -9,6 +9,7 @@ from app.models.contest import Contest
 from app.models.entry import Entry
 from app.models.user import User
 from app.models.official_rules import OfficialRules
+from app.models.sms_template import SMSTemplate
 from app.schemas.admin import (
     AdminContestCreate, AdminContestUpdate, AdminContestResponse, 
     WinnerSelectionResponse, AdminAuthResponse, AdminEntryResponse,
@@ -89,8 +90,9 @@ async def create_contest(
     Validates legal compliance before allowing activation.
     """
     # Convert Pydantic models to dict for validation
-    contest_dict = contest_data.dict(exclude={'official_rules'})
+    contest_dict = contest_data.dict(exclude={'official_rules', 'sms_templates'})
     rules_dict = contest_data.official_rules.dict()
+    sms_templates = contest_data.sms_templates
     
     # Validate legal compliance
     validate_contest_compliance(contest_dict, rules_dict)
@@ -118,6 +120,19 @@ async def create_contest(
         **rules_dict
     )
     db.add(official_rules)
+    
+    # Create SMS templates if provided (Phase 2)
+    if sms_templates:
+        template_data = sms_templates.dict(exclude_unset=True)
+        for template_type, message_content in template_data.items():
+            if message_content and message_content.strip():
+                sms_template = SMSTemplate(
+                    contest_id=contest.id,
+                    template_type=template_type,
+                    message_content=message_content.strip()
+                )
+                db.add(sms_template)
+    
     db.commit()
     
     # Refresh to get relationships
