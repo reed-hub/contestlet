@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from datetime import datetime
+from app.core.datetime_utils import utc_now
 from typing import List, Optional
 import random
 from app.database.database import get_db
@@ -283,67 +284,96 @@ async def select_winner(
     """
     Randomly select a winner from contest entries and mark as selected.
     """
-    # Get contest
-    contest = db.query(Contest).filter(Contest.id == contest_id).first()
-    if not contest:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Contest not found"
-        )
+    try:
+        print(f"🎯 Winner selection requested for contest {contest_id} by admin {admin_user.get('phone', 'unknown')}")
+        
+        # Get contest
+        contest = db.query(Contest).filter(Contest.id == contest_id).first()
+        if not contest:
+            print(f"❌ Contest {contest_id} not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Contest not found"
+            )
+        
+        print(f"📊 Contest found: {contest.name}, end_time: {contest.end_time}")
+        
+        # Check if contest has ended
+        current_time = utc_now()
+        if contest.end_time > current_time:
+            print(f"❌ Contest still active, ends at {contest.end_time}, current time: {current_time}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot select winner for an active contest. Contest must end first."
+            )
+        
+        # Get all entries for this contest
+        entries = db.query(Entry).options(joinedload(Entry.user)).filter(
+            Entry.contest_id == contest_id
+        ).all()
+        
+        print(f"📊 Found {len(entries)} entries for contest {contest_id}")
+        
+        if not entries:
+            print(f"❌ No entries found for contest {contest_id}")
+            return WinnerSelectionResponse(
+                success=False,
+                message="No entries found for this contest",
+                total_entries=0
+            )
+        
+        # Check if winner already selected
+        existing_winner = db.query(Entry).filter(
+            Entry.contest_id == contest_id,
+            Entry.selected == True
+        ).first()
+        
+        if existing_winner:
+            print(f"⚠️ Winner already selected for contest {contest_id}: Entry {existing_winner.id}")
+            return WinnerSelectionResponse(
+                success=False,
+                message="Winner already selected for this contest",
+                winner_entry_id=existing_winner.id,
+                winner_user_phone=existing_winner.user.phone,
+                total_entries=len(entries)
+            )
     
-    # Check if contest has ended
-    if contest.end_time > datetime.utcnow():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot select winner for an active contest. Contest must end first."
-        )
-    
-    # Get all entries for this contest
-    entries = db.query(Entry).options(joinedload(Entry.user)).filter(
-        Entry.contest_id == contest_id
-    ).all()
-    
-    if not entries:
+        # Randomly select winner
+        winner_entry = random.choice(entries)
+        print(f"🏆 Selected winner: Entry ID {winner_entry.id}, User: {winner_entry.user.phone}")
+        
+        winner_entry.selected = True
+        winner_entry.status = "winner"
+        
+        # Update contest with winner information
+        contest.winner_entry_id = winner_entry.id
+        contest.winner_phone = winner_entry.user.phone
+        contest.winner_selected_at = utc_now()
+        
+        print(f"💾 Committing winner selection to database...")
+        db.commit()
+        print(f"✅ Winner selection completed successfully")
+        
         return WinnerSelectionResponse(
-            success=False,
-            message="No entries found for this contest",
-            total_entries=0
-        )
-    
-    # Check if winner already selected
-    existing_winner = db.query(Entry).filter(
-        Entry.contest_id == contest_id,
-        Entry.selected == True
-    ).first()
-    
-    if existing_winner:
-        return WinnerSelectionResponse(
-            success=False,
-            message="Winner already selected for this contest",
-            winner_entry_id=existing_winner.id,
-            winner_user_phone=existing_winner.user.phone,
+            success=True,
+            message=f"Winner selected successfully from {len(entries)} entries",
+            winner_entry_id=winner_entry.id,
+            winner_user_phone=winner_entry.user.phone,
             total_entries=len(entries)
         )
     
-    # Randomly select winner
-    winner_entry = random.choice(entries)
-    winner_entry.selected = True
-    winner_entry.status = "winner"
-    
-    # Update contest with winner information
-    contest.winner_entry_id = winner_entry.id
-    contest.winner_phone = winner_entry.user.phone
-    contest.winner_selected_at = datetime.utcnow()
-    
-    db.commit()
-    
-    return WinnerSelectionResponse(
-        success=True,
-        message=f"Winner selected successfully from {len(entries)} entries",
-        winner_entry_id=winner_entry.id,
-        winner_user_phone=winner_entry.user.phone,
-        total_entries=len(entries)
-    )
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        print(f"🚨 Winner selection error for contest {contest_id}: {str(e)}")
+        print(f"🚨 Error type: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Winner selection failed: {str(e)}"
+        )
 
 
 @router.post("/contests/{contest_id}/notify-winner", response_model=WinnerNotificationResponse)
