@@ -43,6 +43,8 @@ from fastapi.middleware.cors import CORSMiddleware
 @app.exception_handler(500)
 async def internal_server_error_handler(request: Request, exc: Exception):
     """Ensure CORS headers are included even for 500 errors"""
+    print(f"🚨 500 Error Handler: {exc}")
+    
     response = JSONResponse(
         status_code=500,
         content={"detail": "Internal server error"}
@@ -50,9 +52,21 @@ async def internal_server_error_handler(request: Request, exc: Exception):
     
     # Get origin from request
     origin = request.headers.get("origin")
-    if origin and origin in env_config.get("cors_origins", []):
+    cors_origins = env_config.get("cors_origins", [])
+    
+    print(f"🔍 Origin: {origin}, Allowed origins: {cors_origins}")
+    
+    # Always add CORS headers for development
+    if env_config.get("environment") == "development":
+        response.headers["Access-Control-Allow-Origin"] = origin or "http://localhost:3000"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+    elif origin and origin in cors_origins:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
     
     return response
 

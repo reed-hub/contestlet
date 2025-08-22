@@ -147,15 +147,25 @@ async def enter_contest(
     
     # Check if contest is currently accepting entries (time-based check)
     from app.core.datetime_utils import utc_now
+    from datetime import timezone
     current_time = utc_now()
     
-    if current_time < contest.start_time:
+    # Ensure contest times are timezone-aware for comparison
+    contest_start = contest.start_time
+    contest_end = contest.end_time
+    
+    if contest_start.tzinfo is None:
+        contest_start = contest_start.replace(tzinfo=timezone.utc)
+    if contest_end.tzinfo is None:
+        contest_end = contest_end.replace(tzinfo=timezone.utc)
+    
+    if current_time < contest_start:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Contest has not started yet"
         )
     
-    if current_time >= contest.end_time:
+    if current_time >= contest_end:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Contest has ended"
