@@ -929,18 +929,24 @@ async def delete_contest(
         entries_deleted = db.query(Entry).filter(Entry.contest_id == contest_id).delete()
         deletion_summary.entries_deleted = entries_deleted
         
-        # 3. Delete official rules (if exists)
+        # 3. Delete SMS templates (CRITICAL: Must be deleted before contest)
+        from app.models.sms_template import SMSTemplate
+        sms_templates_deleted = db.query(SMSTemplate).filter(SMSTemplate.contest_id == contest_id).delete()
+        print(f"🗑️ Deleted {sms_templates_deleted} SMS templates for contest {contest_id}")
+        
+        # 4. Delete official rules (if exists)
         official_rules_deleted = db.query(OfficialRules).filter(OfficialRules.contest_id == contest_id).delete()
         deletion_summary.official_rules_deleted = official_rules_deleted
         
-        # 4. Finally delete the contest itself
+        # 5. Finally delete the contest itself
         db.delete(contest)
         
         # Calculate total dependencies cleared
         deletion_summary.dependencies_cleared = (
             deletion_summary.entries_deleted + 
             deletion_summary.notifications_deleted + 
-            deletion_summary.official_rules_deleted
+            deletion_summary.official_rules_deleted +
+            sms_templates_deleted
         )
         
         # Commit all changes
@@ -950,6 +956,7 @@ async def delete_contest(
         print(f"✅ Contest {contest_id} deleted by admin {admin_user.get('sub', 'unknown')}")
         print(f"   - Entries deleted: {deletion_summary.entries_deleted}")
         print(f"   - Notifications deleted: {deletion_summary.notifications_deleted}")
+        print(f"   - SMS templates deleted: {sms_templates_deleted}")
         print(f"   - Official rules deleted: {deletion_summary.official_rules_deleted}")
         print(f"   - Total dependencies cleared: {deletion_summary.dependencies_cleared}")
         
