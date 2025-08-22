@@ -1,13 +1,21 @@
 # 🎉 Frontend Integration Summary - 100% Form Support Complete
 
-**All 25 contest creation form fields are now fully supported by the backend API!**
+**All 27 contest creation form fields are now fully supported by the backend API!**
+
+## 🆕 **Latest Update: Image & Host Fields Added**
+
+**New fields added for enhanced contest branding:**
+- **`image_url`**: Contest hero image URL (1:1 aspect ratio recommended)
+- **`host_name`**: Contest organizer/sponsor name for branding
+
+These fields are now available in all environments and ready for frontend integration!
 
 ---
 
 ## 🚀 **Quick Summary for Frontend Team**
 
 ### **✅ Status: PRODUCTION READY**
-- **25/25 form fields** fully implemented and tested
+- **27/27 form fields** fully implemented and tested
 - **All validation rules** working on backend
 - **SMS templates** with variable substitution
 - **Multi-environment** deployment complete
@@ -23,7 +31,7 @@
 
 ## 📋 **Complete Field Reference**
 
-### **✅ BASIC INFORMATION (8 fields)**
+### **✅ BASIC INFORMATION (10 fields)**
 
 | Frontend Field | API Field | Type | Required | Validation |
 |----------------|-----------|------|----------|------------|
@@ -35,6 +43,8 @@
 | **Eligibility Requirements** | `official_rules.eligibility_text` | string | ✅ Yes | Non-empty |
 | **Start Date/Time** | `start_time` | datetime | ✅ Yes | ISO format |
 | **End Date/Time** | `end_time` | datetime | ✅ Yes | > start_time |
+| **Contest Image URL** | `image_url` | string | ❌ No | Valid URL |
+| **Host/Sponsor Name** | `host_name` | string | ❌ No | Any text |
 
 ### **✅ ADVANCED OPTIONS (10 fields)**
 
