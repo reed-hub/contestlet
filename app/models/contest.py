@@ -48,9 +48,9 @@ class Contest(Base):
     contest_tags = Column(JSON, nullable=True)                # Array of tags for organization
     promotion_channels = Column(JSON, nullable=True)          # Array of promotion channels
     
-    # Visual branding and host information
+    # Visual branding and sponsor information
     image_url = Column(String, nullable=True)                 # CDN URL to contest hero image (1:1 aspect ratio)
-    host_name = Column(String, nullable=True)                 # Contest organizer/sponsor name
+    sponsor_url = Column(String, nullable=True)               # Sponsor's website URL
     
     # Relationships
     entries = relationship("Entry", back_populates="contest")

@@ -6,9 +6,11 @@
 
 **New fields added for enhanced contest branding:**
 - **`image_url`**: Contest hero image URL (1:1 aspect ratio recommended)
-- **`host_name`**: Contest organizer/sponsor name for branding
+- **`sponsor_url`**: Sponsor's website URL for branding links
 
 These fields are now available in all environments and ready for frontend integration!
+
+**Note**: Sponsor name is available via `official_rules.sponsor_name` (existing field).
 
 ---
 
@@ -44,7 +46,7 @@ These fields are now available in all environments and ready for frontend integr
 | **Start Date/Time** | `start_time` | datetime | ✅ Yes | ISO format |
 | **End Date/Time** | `end_time` | datetime | ✅ Yes | > start_time |
 | **Contest Image URL** | `image_url` | string | ❌ No | Valid URL |
-| **Host/Sponsor Name** | `host_name` | string | ❌ No | Any text |
+| **Sponsor Website** | `sponsor_url` | string | ❌ No | Valid URL |
 
 ### **✅ ADVANCED OPTIONS (10 fields)**
 
