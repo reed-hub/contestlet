@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import Base, engine
 from app.routers import auth_router, contests_router, entries_router, admin_router
 from app.routers.admin_profile import router as admin_profile_router
+from app.routers.location import router as location_router
 from app.core.vercel_config import get_vercel_environment, get_environment_config, log_environment_info
 
 # Log environment info for debugging
@@ -76,6 +77,7 @@ app.include_router(contests_router)
 app.include_router(entries_router)
 app.include_router(admin_router)
 app.include_router(admin_profile_router)
+app.include_router(location_router)
 
 
 @app.get("/")

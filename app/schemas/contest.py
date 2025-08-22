@@ -29,6 +29,14 @@ class ContestBase(BaseModel):
     # Visual branding and sponsor information
     image_url: Optional[str] = Field(None, description="CDN URL to contest hero image (1:1 aspect ratio)")
     sponsor_url: Optional[str] = Field(None, description="Sponsor's website URL")
+    
+    # Smart Location System fields
+    location_type: Optional[str] = Field("united_states", description="Location targeting type")
+    selected_states: Optional[List[str]] = Field(None, description="State codes for specific_states targeting")
+    radius_address: Optional[str] = Field(None, description="Address for radius targeting")
+    radius_miles: Optional[int] = Field(None, description="Radius in miles for targeting")
+    radius_latitude: Optional[float] = Field(None, description="Latitude for radius center")
+    radius_longitude: Optional[float] = Field(None, description="Longitude for radius center")
 
     @validator('latitude')
     def validate_latitude(cls, v):

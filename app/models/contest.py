@@ -11,9 +11,18 @@ class Contest(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     description = Column(Text)
-    location = Column(String)  # Format: "City, State ZIP" or similar
-    latitude = Column(Float)  # Latitude for geolocation
-    longitude = Column(Float)  # Longitude for geolocation
+    # Legacy location fields (kept for backward compatibility)
+    location = Column(String)  # Format: "City, State ZIP" or similar - now used as display_text
+    latitude = Column(Float)  # Legacy latitude for geolocation
+    longitude = Column(Float)  # Legacy longitude for geolocation
+    
+    # Smart Location System fields
+    location_type = Column(String(20), default="united_states", nullable=False)  # Location targeting type
+    selected_states = Column(JSON, nullable=True)  # Array of state codes for specific_states type
+    radius_address = Column(String(500), nullable=True)  # Address for radius targeting
+    radius_miles = Column(Integer, nullable=True)  # Radius in miles for radius targeting
+    radius_latitude = Column(Float, nullable=True)  # Latitude for radius center
+    radius_longitude = Column(Float, nullable=True)  # Longitude for radius center
     start_time = Column(DateTime(timezone=True), nullable=False)
     end_time = Column(DateTime(timezone=True), nullable=False)
     prize_description = Column(Text)
