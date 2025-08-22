@@ -300,8 +300,15 @@ async def select_winner(
         
         # Check if contest has ended
         current_time = utc_now()
-        if contest.end_time > current_time:
-            print(f"❌ Contest still active, ends at {contest.end_time}, current time: {current_time}")
+        
+        # Ensure contest end time is timezone-aware for comparison
+        contest_end = contest.end_time
+        if contest_end.tzinfo is None:
+            from datetime import timezone
+            contest_end = contest_end.replace(tzinfo=timezone.utc)
+        
+        if contest_end > current_time:
+            print(f"❌ Contest still active, ends at {contest_end}, current time: {current_time}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot select winner for an active contest. Contest must end first."
