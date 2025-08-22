@@ -109,6 +109,10 @@ class AdminContestResponse(BaseModel):
     created_timezone: Optional[str] = Field(None, description="Timezone used when contest was created")
     admin_user_id: Optional[str] = Field(None, description="Admin who created the contest")
     
+    # Visual branding and host information
+    image_url: Optional[str] = Field(None, description="CDN URL to contest hero image (1:1 aspect ratio)")
+    host_name: Optional[str] = Field(None, description="Contest organizer/sponsor name")
+    
     def __init__(self, **data):
         # Compute status before creating the object based purely on time
         if 'status' not in data:

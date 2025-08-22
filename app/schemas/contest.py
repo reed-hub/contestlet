@@ -25,6 +25,10 @@ class ContestBase(BaseModel):
     geographic_restrictions: Optional[str] = Field(None, description="Geographic restrictions")
     contest_tags: Optional[List[str]] = Field(None, description="Contest tags")
     promotion_channels: Optional[List[str]] = Field(None, description="Promotion channels")
+    
+    # Visual branding and host information
+    image_url: Optional[str] = Field(None, description="CDN URL to contest hero image (1:1 aspect ratio)")
+    host_name: Optional[str] = Field(None, description="Contest organizer/sponsor name")
 
     @validator('latitude')
     def validate_latitude(cls, v):
