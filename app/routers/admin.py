@@ -892,9 +892,15 @@ async def delete_contest(
     
     # Check if contest is currently accepting entries (time-based check)
     from app.core.datetime_utils import utc_now
+    from datetime import timezone
     now = utc_now()
     
-    if entry_count > 0 and contest.end_time > now and not contest.winner_selected_at:
+    # Ensure contest.end_time is timezone-aware for comparison
+    contest_end = contest.end_time
+    if contest_end.tzinfo is None:
+        contest_end = contest_end.replace(tzinfo=timezone.utc)
+    
+    if entry_count > 0 and contest_end > now and not contest.winner_selected_at:
         # Contest is still running and accepting entries
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
