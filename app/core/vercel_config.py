@@ -77,10 +77,10 @@ def get_environment_config() -> Dict[str, Any]:
                 "+18187958204"   # Your admin number
             ],
             "cors_origins": [
-                "https://staging-app.contestlet.com",  # Staging custom domain
+                "https://staging-app.contestlet.com",  # Staging frontend custom domain
+                "https://staging.contestlet.com",      # Staging root domain
                 "https://contestlet-frontend-staging.vercel.app",
                 "https://contestlet-frontend-fd6p132ip-matthew-reeds-projects-89c602d6.vercel.app",  # Current staging URL
-                "https://staging.contestlet.com",
                 "http://localhost:3000",  # Local development
                 "http://localhost:3002"   # Local development alt port
             ]
