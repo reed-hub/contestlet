@@ -67,6 +67,31 @@ class AdminContestUpdate(BaseModel):
     start_time: Optional[datetime] = Field(None, description="Contest start time")
     end_time: Optional[datetime] = Field(None, description="Contest end time")
     prize_description: Optional[str] = Field(None, description="Prize description")
+    
+    # Visual branding and sponsor information
+    image_url: Optional[str] = Field(None, description="CDN URL to contest hero image (1:1 aspect ratio)")
+    sponsor_url: Optional[str] = Field(None, description="Sponsor's website URL")
+    
+    # Smart Location System fields
+    location_type: Optional[str] = Field(None, description="Location targeting type")
+    selected_states: Optional[List[str]] = Field(None, description="State codes for specific_states targeting")
+    radius_address: Optional[str] = Field(None, description="Address for radius targeting")
+    radius_miles: Optional[int] = Field(None, description="Radius in miles for targeting")
+    radius_latitude: Optional[float] = Field(None, description="Latitude for radius center")
+    radius_longitude: Optional[float] = Field(None, description="Longitude for radius center")
+    
+    # Contest configuration fields
+    contest_type: Optional[str] = Field(None, description="Contest type")
+    entry_method: Optional[str] = Field(None, description="Entry method")
+    winner_selection_method: Optional[str] = Field(None, description="Winner selection method")
+    minimum_age: Optional[int] = Field(None, description="Minimum age requirement")
+    max_entries_per_person: Optional[int] = Field(None, description="Maximum entries per person")
+    total_entry_limit: Optional[int] = Field(None, description="Total entry limit")
+    consolation_offer: Optional[str] = Field(None, description="Consolation prize/offer")
+    geographic_restrictions: Optional[str] = Field(None, description="Geographic restrictions")
+    contest_tags: Optional[List[str]] = Field(None, description="Contest tags")
+    promotion_channels: Optional[List[str]] = Field(None, description="Promotion channels")
+    
 # Note: Active status is now computed automatically based on start/end times and winner selection
     official_rules: Optional[OfficialRulesUpdate] = Field(None, description="Official rules updates")
 
