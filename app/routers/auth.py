@@ -5,7 +5,7 @@ from app.database.database import get_db
 from app.models.user import User
 from app.schemas.auth import PhoneVerificationRequest, TokenResponse, UserMeResponse
 from app.schemas.otp import OTPRequest, OTPVerification, OTPResponse, OTPVerificationResponse
-from app.core.auth import create_access_token, verify_token
+from app.core.auth import create_access_token, create_user_token, verify_token
 from app.core.twilio_verify_service import twilio_verify_service
 from app.core.rate_limiter import rate_limiter
 from app.core.config import settings
@@ -82,21 +82,30 @@ async def verify_otp(
     # Get or create user with the formatted phone number
     user = db.query(User).filter(User.phone == formatted_phone).first()
     if not user:
-        user = User(phone=formatted_phone)
+        # Create new user with default role
+        admin_phones = settings.get_admin_phones()
+        default_role = "admin" if formatted_phone in admin_phones else "user"
+        
+        user = User(
+            phone=formatted_phone,
+            role=default_role,
+            is_verified=True  # Phone is verified through OTP
+        )
         db.add(user)
         db.commit()
         db.refresh(user)
+    else:
+        # Update verification status for existing user
+        if not user.is_verified:
+            user.is_verified = True
+            db.commit()
     
-    # Determine user role based on admin phone list
-    admin_phones = settings.get_admin_phones()
-    user_role = "admin" if formatted_phone in admin_phones else "user"
-    
-    # Create JWT token with role
-    access_token = create_access_token(data={
-        "sub": str(user.id),
-        "phone": formatted_phone,
-        "role": user_role
-    })
+    # Create JWT token with user's actual role from database
+    access_token = create_user_token(
+        user_id=user.id,
+        phone=user.phone,
+        role=user.role
+    )
     
     return OTPVerificationResponse(
         success=True,

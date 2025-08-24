@@ -62,11 +62,25 @@ class TwilioVerifyService:
     def validate_phone_number(self, phone: str) -> Tuple[bool, str, Optional[str]]:
         """
         Validate and format phone number using phonenumbers library.
+        In mock mode (development), allows test numbers.
         
         Returns:
             Tuple of (is_valid, formatted_phone, error_message)
         """
         try:
+            # In mock mode, allow test numbers
+            if self.use_mock:
+                # Allow common test phone number patterns
+                test_patterns = [
+                    "+15551234567", "+15559876543", "+15551111111", 
+                    "+15552222222", "+15553333333", "+15554444444",
+                    "+18187958204"  # Admin number
+                ]
+                
+                if phone in test_patterns:
+                    logger.info(f"MOCK MODE: Accepting test phone number {self._mask_phone(phone)}")
+                    return True, phone, None
+            
             # Parse the phone number
             parsed = phonenumbers.parse(phone, "US")  # Default to US region
             
