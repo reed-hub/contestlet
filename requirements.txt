@@ -27,3 +27,9 @@ slowapi==0.1.9
 
 # Date & Time
 pytz==2023.3
+
+# HTTP Client (for geocoding)
+httpx==0.25.2
+
+# Geospatial calculations
+geopy==2.4.0
