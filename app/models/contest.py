@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, Float, JSON
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, Float, JSON, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database.database import Base
@@ -61,8 +61,21 @@ class Contest(Base):
     image_url = Column(String, nullable=True)                 # CDN URL to contest hero image (1:1 aspect ratio)
     sponsor_url = Column(String, nullable=True)               # Sponsor's website URL
     
+    # Role System Fields
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    sponsor_profile_id = Column(Integer, ForeignKey("sponsor_profiles.id"), nullable=True, index=True)
+    is_approved = Column(Boolean, default=True, nullable=False, index=True)  # Default true for backward compatibility
+    approved_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    
     # Relationships
     entries = relationship("Entry", back_populates="contest")
     official_rules = relationship("OfficialRules", back_populates="contest", uselist=False)
     notifications = relationship("Notification", back_populates="contest")
     sms_templates = relationship("SMSTemplate", back_populates="contest")
+    
+    # Role System Relationships
+    creator = relationship("User", foreign_keys=[created_by_user_id], back_populates="created_contests")
+    approver = relationship("User", foreign_keys=[approved_by_user_id], back_populates="approved_contests")
+    sponsor_profile = relationship("SponsorProfile", back_populates="contests")
+    approval_history = relationship("ContestApprovalAudit", back_populates="contest")
