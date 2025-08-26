@@ -204,8 +204,9 @@ class TwilioVerifyService:
             return False, "Invalid verification code (must be 6 digits)"
         
         # Reject obviously invalid codes for security testing
+        # Note: 123456 is allowed as it's the standard mock code
         invalid_codes = ["000000", "111111", "222222", "333333", "444444", "555555", 
-                        "666666", "777777", "888888", "999999", "123456", "654321"]
+                        "666666", "777777", "888888", "999999", "654321"]
         
         if code in invalid_codes:
             logger.info(f"🔐 MOCK: Rejected invalid test code {code} for {self._mask_phone(phone)}")
