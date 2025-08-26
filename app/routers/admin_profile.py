@@ -15,12 +15,16 @@ from app.services.admin_service import AdminService
 router = APIRouter(prefix="/admin/profile", tags=["admin-profile"])
 
 
-@router.get("/", response_model=UserWithRole)
+@router.get("/", response_model=UserWithRole, deprecated=True)
 async def get_admin_profile(
     admin_user: User = Depends(get_admin_user_dependency),
     db: Session = Depends(get_db)
 ):
-    """Get admin's user account profile (consistent with /user/profile)"""
+    """
+    DEPRECATED: Use GET /users/me instead.
+    
+    Get admin's user account profile (consistent with /user/profile).
+    """
     return admin_user
 
 

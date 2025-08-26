@@ -26,23 +26,31 @@ router = APIRouter(prefix="/user", tags=["user"])
 # USER PROFILE MANAGEMENT
 # =====================================================
 
-@router.get("/profile", response_model=UserWithRole)
+@router.get("/profile", response_model=UserWithRole, deprecated=True)
 async def get_user_profile(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get user's profile information"""
+    """
+    DEPRECATED: Use GET /users/me instead.
+    
+    Get user's profile information.
+    """
     return current_user
 
 
-@router.put("/profile", response_model=UserWithRole)
+@router.put("/profile", response_model=UserWithRole, deprecated=True)
 async def update_user_profile(
     # For now, users can only update verification status through admin
     # Future: Add fields like name, email, preferences, etc.
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Update user's profile information"""
+    """
+    DEPRECATED: Use PUT /users/me instead.
+    
+    Update user's profile information.
+    """
     # Currently, users have limited profile fields to update
     # This endpoint is prepared for future profile expansions
     

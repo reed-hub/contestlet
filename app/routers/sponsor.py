@@ -34,12 +34,16 @@ router = APIRouter(prefix="/sponsor", tags=["sponsor"])
 # SPONSOR PROFILE MANAGEMENT
 # =====================================================
 
-@router.get("/profile", response_model=UnifiedSponsorProfileResponse)
+@router.get("/profile", response_model=UnifiedSponsorProfileResponse, deprecated=True)
 async def get_sponsor_user_profile(
     sponsor_user: User = Depends(get_sponsor_user),
     db: Session = Depends(get_db)
 ):
-    """Get sponsor's unified profile combining user and company information"""
+    """
+    DEPRECATED: Use GET /users/me instead.
+    
+    Get sponsor's unified profile combining user and company information.
+    """
     # Create unified response
     unified_profile = UnifiedSponsorProfileResponse(
         user_id=sponsor_user.id,
@@ -69,13 +73,17 @@ async def get_sponsor_company_profile(
     return sponsor_user.sponsor_profile
 
 
-@router.put("/profile", response_model=UnifiedSponsorProfileResponse)
+@router.put("/profile", response_model=UnifiedSponsorProfileResponse, deprecated=True)
 async def update_sponsor_profile(
     profile_update: SponsorProfileUpdate,
     sponsor_user: User = Depends(get_sponsor_user),
     db: Session = Depends(get_db)
 ):
-    """Update sponsor's profile information"""
+    """
+    DEPRECATED: Use PUT /users/me instead.
+    
+    Update sponsor's profile information.
+    """
     if not sponsor_user.sponsor_profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
