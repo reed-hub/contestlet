@@ -25,9 +25,9 @@ class JWTManager:
         if expires_delta:
             expire = datetime.utcnow() + expires_delta
         elif token_type == "refresh":
-            expire = datetime.utcnow() + timedelta(minutes=self._settings.security.jwt_refresh_expire_minutes)
+            expire = datetime.utcnow() + timedelta(minutes=self._settings.jwt_refresh_expire_minutes)
         else:
-            expire = datetime.utcnow() + timedelta(minutes=self._settings.security.jwt_expire_minutes)
+            expire = datetime.utcnow() + timedelta(minutes=self._settings.jwt_expire_minutes)
         
         to_encode.update({
             "exp": expire,
@@ -37,8 +37,8 @@ class JWTManager:
         
         return jwt.encode(
             to_encode, 
-            self._settings.security.secret_key, 
-            algorithm=self._settings.security.jwt_algorithm
+            self._settings.secret_key, 
+            algorithm=self._settings.jwt_algorithm
         )
     
     def create_access_token(self, user_id: int, phone: str, role: str = "user", **extra_claims) -> str:
@@ -65,8 +65,8 @@ class JWTManager:
         try:
             payload = jwt.decode(
                 token, 
-                self._settings.security.secret_key, 
-                algorithms=[self._settings.security.jwt_algorithm]
+                self._settings.secret_key, 
+                algorithms=[self._settings.jwt_algorithm]
             )
             
             # Validate token type

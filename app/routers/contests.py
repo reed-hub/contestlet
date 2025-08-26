@@ -45,33 +45,74 @@ async def get_active_contests(
     # Apply pagination
     contests = query.offset((page - 1) * size).limit(size).all()
     
+    # Calculate total pages
+    total_pages = (total + size - 1) // size if total > 0 else 1
+    
+    # Convert contests to response format
+    contest_responses = []
+    for contest in contests:
+        # Compute status based on current time
+        now = datetime.utcnow()
+        if contest.start_time > now:
+            status = "upcoming"
+        elif contest.end_time <= now:
+            status = "ended"
+        else:
+            status = "active"
+        
+        # Create a simple dict for the response with only existing fields
+        contest_dict = {
+            'id': contest.id,
+            'name': contest.name,
+            'description': contest.description,
+            'location': contest.location,
+            'latitude': contest.latitude,
+            'longitude': contest.longitude,
+            'start_time': contest.start_time,
+            'end_time': contest.end_time,
+            'prize_description': contest.prize_description,
+            'winner_selection_method': contest.winner_selection_method,
+            'contest_type': contest.contest_type,
+            'entry_method': contest.entry_method,
+            'active': contest.active,
+            'minimum_age': contest.minimum_age,
+            'max_entries_per_person': contest.max_entries_per_person,
+            'total_entry_limit': contest.total_entry_limit,
+            'consolation_offer': contest.consolation_offer,
+            'geographic_restrictions': contest.geographic_restrictions,
+            'contest_tags': contest.contest_tags,
+            'promotion_channels': contest.promotion_channels,
+            'image_url': contest.image_url,
+            'sponsor_url': contest.sponsor_url,
+            'created_by_user_id': contest.created_by_user_id,
+            'sponsor_profile_id': contest.sponsor_profile_id,
+            'is_approved': contest.is_approved,
+            'approved_by_user_id': contest.approved_by_user_id,
+            'approved_at': contest.approved_at,
+            'location_type': contest.location_type or "united_states",
+            'selected_states': contest.selected_states,
+            'radius_address': contest.radius_address,
+            'radius_miles': contest.radius_miles,
+            'radius_latitude': contest.radius_latitude,
+            'radius_longitude': contest.radius_longitude,
+            'created_at': contest.created_at,
+            'updated_at': getattr(contest, 'updated_at', None),
+            'status': status,
+            'entry_count': len(contest.entries) if contest.entries else 0,
+            'is_winner_selected': contest.winner_entry_id is not None,
+            # Add missing fields that the schema expects
+            'prize_value': None,  # Not in model, set to None
+            'distance_miles': None  # Not applicable for this endpoint
+        }
+        contest_responses.append(contest_dict)
+    
     return ContestListResponse(
-        contests=contests,
+        contests=contest_responses,
         total=total,
         page=page,
-        size=size
+        size=size,
+        total_pages=total_pages
     )
-
-
-@router.get("/{contest_id}", response_model=ContestResponse)
-async def get_contest_details(
-    contest_id: int,
-    db: Session = Depends(get_db)
-):
-    """Get public details for a specific contest (no authentication required)"""
-    # Get contest with all basic details
-    contest = db.query(Contest).filter(Contest.id == contest_id).first()
-    
-    if not contest:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Contest not found"
-        )
-    
-    # Return contest details for public viewing
-    # Note: This endpoint is public and doesn't require authentication
-    # It returns contest information suitable for public display
-    return contest
 
 
 @router.get("/nearby", response_model=ContestListResponse)
@@ -149,6 +190,27 @@ async def get_nearby_contests(
         page=page,
         size=size
     )
+
+
+@router.get("/{contest_id}", response_model=ContestResponse)
+async def get_contest_details(
+    contest_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get public details for a specific contest (no authentication required)"""
+    # Get contest with all basic details
+    contest = db.query(Contest).filter(Contest.id == contest_id).first()
+    
+    if not contest:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Contest not found"
+        )
+    
+    # Return contest details for public viewing
+    # Note: This endpoint is public and doesn't require authentication
+    # It returns contest information suitable for public display
+    return contest
 
 
 @router.post("/{contest_id}/enter", response_model=EntryResponse)

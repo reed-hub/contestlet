@@ -66,17 +66,17 @@ async def verify_otp(
     )
     
     if not success:
-        return OTPVerificationResponse(
-            success=False,
-            message=message
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=message
         )
     
     # Verification successful - get the validated phone number
     is_valid, formatted_phone, error = twilio_verify_service.validate_phone_number(otp_verification.phone)
     if not is_valid:
-        return OTPVerificationResponse(
-            success=False,
-            message=error or "Phone number validation failed"
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error or "Phone number validation failed"
         )
     
     # Get or create user with the formatted phone number

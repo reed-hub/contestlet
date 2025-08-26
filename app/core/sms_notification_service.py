@@ -7,7 +7,7 @@ import logging
 from typing import Tuple, Optional
 from twilio.rest import Client
 from twilio.base.exceptions import TwilioException
-from app.core.config import settings
+from app.core.config import get_settings
 from app.core.vercel_config import get_environment_config
 
 logger = logging.getLogger(__name__)
@@ -18,8 +18,9 @@ class SMSNotificationService:
     
     def __init__(self):
         # Get environment-specific configuration
+        settings = get_settings()
         self.env_config = get_environment_config()
-        self.use_mock = settings.USE_MOCK_SMS or self.env_config.get("use_mock_sms", False)
+        self.use_mock = settings.use_mock_sms or self.env_config.get("use_mock_sms", False)
         
         if not self.use_mock:
             if not all([settings.twilio_account_sid, settings.twilio_auth_token, settings.twilio_phone_number]):

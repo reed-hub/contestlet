@@ -1,9 +1,9 @@
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from app.core.config import settings
+from app.core.config import get_settings
 from app.core.auth import verify_token
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 async def verify_admin_token(
@@ -13,6 +13,13 @@ async def verify_admin_token(
     Verify admin authentication token using JWT with role checking.
     Supports both legacy admin tokens and new role-based JWT tokens.
     """
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     token = credentials.credentials
     
     # First try JWT token with role verification
@@ -21,7 +28,8 @@ async def verify_admin_token(
         return payload
     
     # Fallback to legacy admin token for backward compatibility
-    if token == settings.ADMIN_TOKEN:
+    settings = get_settings()
+    if token == settings.admin_token:
         return {
             "sub": "legacy_admin",
             "role": "admin",

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
+from datetime import datetime
 from app.database.database import get_db
 from app.models.user import User
 from app.schemas.admin import (
@@ -51,7 +52,46 @@ async def get_all_contests(
     """Get all contests with admin access"""
     contest_service = ContestService(db)
     contests = contest_service.get_all_contests()
-    return [AdminContestResponse.from_orm(contest) for contest in contests]
+    
+    # Convert contests to response format with computed fields
+    contest_responses = []
+    for contest in contests:
+        # Compute status based on current time
+        now = datetime.utcnow()
+        if contest.start_time > now:
+            status = "upcoming"
+        elif contest.end_time <= now:
+            status = "ended"
+        else:
+            status = "active"
+        
+        # Create response dict with all required fields
+        contest_data = {
+            'id': contest.id,
+            'name': contest.name,
+            'description': contest.description,
+            'location': contest.location,
+            'latitude': contest.latitude,
+            'longitude': contest.longitude,
+            'start_time': contest.start_time,
+            'end_time': contest.end_time,
+            'prize_description': contest.prize_description,
+            'active': contest.active,
+            'created_at': contest.created_at,
+            'entry_count': len(contest.entries) if contest.entries else 0,
+            'status': status,
+            'winner_entry_id': contest.winner_entry_id,
+            'winner_phone': contest.winner_phone,
+            'winner_selected_at': contest.winner_selected_at,
+            'created_timezone': contest.created_timezone,
+            'admin_user_id': contest.admin_user_id,
+            'image_url': contest.image_url,
+            'sponsor_url': contest.sponsor_url,
+            'official_rules': None  # TODO: Load if needed
+        }
+        contest_responses.append(AdminContestResponse(**contest_data))
+    
+    return contest_responses
 
 
 @router.get("/{contest_id}/entries", response_model=List[AdminEntryResponse])

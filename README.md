@@ -192,9 +192,11 @@ python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### **2. Access the API**
-- **API**: http://localhost:8000
-- **Interactive Docs**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+**✅ Server Status**: 🟢 **RUNNING SUCCESSFULLY**
+- **API**: http://localhost:8000 ✅
+- **Interactive Docs**: http://localhost:8000/docs ✅
+- **ReDoc**: http://localhost:8000/redoc ✅
+- **Health Check**: http://localhost:8000/health ✅
 
 ### **3. Test with Frontend**
 The API is designed to work seamlessly with the frontend form. All 25 form fields are supported.

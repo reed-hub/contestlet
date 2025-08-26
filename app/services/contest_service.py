@@ -40,6 +40,20 @@ class ContestService:
         
         return query.filter(Contest.id == contest_id).first()
     
+    def get_all_contests(self, limit: int = 100) -> List[Contest]:
+        """Get all contests (for admin access)"""
+        return (
+            self.db.query(Contest)
+            .options(
+                joinedload(Contest.creator),
+                joinedload(Contest.approver),
+                joinedload(Contest.entries)
+            )
+            .order_by(Contest.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+    
     def get_active_contests(self, limit: int = 100) -> List[Contest]:
         """Get all active contests"""
         now = utc_now()

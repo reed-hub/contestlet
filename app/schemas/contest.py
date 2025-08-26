@@ -85,7 +85,9 @@ class ContestBase(BaseModel):
     
     @validator('start_time')
     def validate_start_time(cls, v):
-        """Validate start time is in the future"""
+        """Validate start time is in the future (only for creation)"""
+        # Only validate for creation, not for responses
+        # This validator is overridden in ContestResponse
         if v <= datetime.utcnow():
             raise ValueError('Start time must be in the future')
         return v
@@ -150,10 +152,54 @@ class ContestUpdate(BaseModel):
     radius_longitude: Optional[float] = Field(None, ge=-180, le=180)
 
 
-class ContestResponse(ContestBase):
+class ContestResponse(BaseModel):
     """Contest response model with computed fields"""
     
+    # Basic contest info
     id: int
+    name: str
+    description: Optional[str] = None
+    location: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    start_time: datetime
+    end_time: datetime
+    prize_description: Optional[str] = None
+    prize_value: Optional[float] = None  # Made optional since it's not in the model
+    
+    # Contest configuration
+    contest_type: str = "general"
+    entry_method: str = "sms"
+    winner_selection_method: str = "random"
+    active: bool = True
+    minimum_age: int = 18
+    max_entries_per_person: Optional[int] = None
+    total_entry_limit: Optional[int] = None
+    
+    # Additional details
+    consolation_offer: Optional[str] = None
+    geographic_restrictions: Optional[str] = None
+    contest_tags: Optional[List[str]] = None
+    promotion_channels: Optional[List[str]] = None
+    image_url: Optional[str] = None
+    sponsor_url: Optional[str] = None
+    
+    # Location system
+    location_type: str = "united_states"
+    selected_states: Optional[List[str]] = None
+    radius_address: Optional[str] = None
+    radius_miles: Optional[int] = None
+    radius_latitude: Optional[float] = None
+    radius_longitude: Optional[float] = None
+    
+    # Role system
+    created_by_user_id: Optional[int] = None
+    sponsor_profile_id: Optional[int] = None
+    is_approved: bool = True
+    approved_by_user_id: Optional[int] = None
+    approved_at: Optional[datetime] = None
+    
+    # Response-specific fields
     created_at: datetime
     updated_at: Optional[datetime] = None
     distance_miles: Optional[float] = Field(None, ge=0, description="Distance from query point in miles")

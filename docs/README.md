@@ -47,6 +47,7 @@
 - **[Staging Test Data](./testing/STAGING_TEST_DATA_SUMMARY.md)** - Test data overview
 
 ### **🔧 For Troubleshooting**
+- **[Current Known Issues](./troubleshooting/CURRENT_KNOWN_ISSUES.md)** - Latest status and minor issues
 - **[CORS Issues](./troubleshooting/DEVELOP_BRANCH_CORS_ISSUES.md)** - Common CORS problems
 - **[Local Development Issues](./troubleshooting/)** - Development environment fixes
 

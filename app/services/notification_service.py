@@ -30,7 +30,7 @@ class NotificationService:
                 joinedload(Notification.user),
                 joinedload(Notification.contest)
             )
-            .order_by(Notification.created_at.desc())
+            .order_by(Notification.sent_at.desc())
             .offset(offset)
             .limit(limit)
             .all()
@@ -236,7 +236,7 @@ class NotificationService:
             self.db.query(Notification)
             .filter(Notification.user_id == user_id)
             .options(joinedload(Notification.contest))
-            .order_by(Notification.created_at.desc())
+            .order_by(Notification.sent_at.desc())
             .limit(limit)
             .all()
         )

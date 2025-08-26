@@ -24,6 +24,13 @@ class TwilioVerifyService:
     def _initialize_twilio(self):
         """Initialize Twilio client with graceful fallbacks"""
         try:
+            # Force mock mode in development environment
+            if self._settings.environment == "development" or self._settings.use_mock_sms:
+                logger.info("Development environment detected - forcing mock SMS mode")
+                self._use_mock = True
+                self._twilio_available = False
+                return
+            
             # Check if Twilio library is available
             try:
                 from twilio.rest import Client
@@ -151,7 +158,9 @@ class TwilioVerifyService:
     
     def _mock_send_verification(self, phone: str) -> Tuple[bool, str]:
         """Mock verification sending for development"""
-        logger.info(f"MOCK: Verification code sent to {self._mask_phone(phone)}")
+        mock_code = "123456"  # Fixed code for development
+        logger.info(f"🔐 MOCK SMS to {phone}: Your verification code is: {mock_code}")
+        print(f"🔐 MOCK SMS to {phone}: Your verification code is: {mock_code}")
         return True, "Verification code sent successfully (mock mode)"
     
     async def _real_send_verification(self, phone: str) -> Tuple[bool, str]:
@@ -190,14 +199,23 @@ class TwilioVerifyService:
     
     def _mock_check_verification(self, phone: str, code: str) -> Tuple[bool, str]:
         """Mock verification checking for development"""
-        # Accept common test codes
-        test_codes = ["123456", "000000", "111111", "999999"]
+        # Validate basic format
+        if not code.isdigit() or len(code) != 6:
+            return False, "Invalid verification code (must be 6 digits)"
         
-        if code in test_codes:
-            logger.info(f"MOCK: Verification successful for {self._mask_phone(phone)}")
-            return True, "Verification successful (mock mode)"
+        # Reject obviously invalid codes for security testing
+        invalid_codes = ["000000", "111111", "222222", "333333", "444444", "555555", 
+                        "666666", "777777", "888888", "999999", "123456", "654321"]
         
-        return False, "Invalid verification code"
+        if code in invalid_codes:
+            logger.info(f"🔐 MOCK: Rejected invalid test code {code} for {self._mask_phone(phone)}")
+            print(f"🔐 MOCK: Rejected invalid test code {code} for {phone}")
+            return False, "Invalid verification code"
+        
+        # Accept other 6-digit codes in development
+        logger.info(f"🔐 MOCK: Verification successful for {self._mask_phone(phone)} with code {code}")
+        print(f"🔐 MOCK: Verification successful for {phone} with code {code}")
+        return True, "Verification successful (mock mode)"
     
     async def _real_check_verification(self, phone: str, code: str) -> Tuple[bool, str]:
         """Real verification checking via Twilio"""
