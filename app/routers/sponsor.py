@@ -18,8 +18,10 @@ from app.schemas.role_system import (
     SponsorProfileCreate, 
     SponsorProfileUpdate, 
     SponsorProfileResponse,
+    UnifiedSponsorProfileResponse,
     RoleUpgradeRequest,
-    RoleUpgradeResponse
+    RoleUpgradeResponse,
+    UserWithRole
 )
 from app.schemas.admin import AdminContestCreate, AdminContestResponse, AdminContestUpdate
 from app.schemas.contest import ContestResponse
@@ -32,12 +34,32 @@ router = APIRouter(prefix="/sponsor", tags=["sponsor"])
 # SPONSOR PROFILE MANAGEMENT
 # =====================================================
 
-@router.get("/profile", response_model=SponsorProfileResponse)
-async def get_sponsor_profile(
+@router.get("/profile", response_model=UnifiedSponsorProfileResponse)
+async def get_sponsor_user_profile(
     sponsor_user: User = Depends(get_sponsor_user),
     db: Session = Depends(get_db)
 ):
-    """Get sponsor's profile information"""
+    """Get sponsor's unified profile combining user and company information"""
+    # Create unified response
+    unified_profile = UnifiedSponsorProfileResponse(
+        user_id=sponsor_user.id,
+        phone=sponsor_user.phone,
+        role=sponsor_user.role,
+        is_verified=sponsor_user.is_verified,
+        created_at=sponsor_user.created_at,
+        role_assigned_at=sponsor_user.role_assigned_at,
+        company_profile=sponsor_user.sponsor_profile
+    )
+    
+    return unified_profile
+
+
+@router.get("/company-profile", response_model=SponsorProfileResponse)
+async def get_sponsor_company_profile(
+    sponsor_user: User = Depends(get_sponsor_user),
+    db: Session = Depends(get_db)
+):
+    """Get sponsor's company profile information"""
     if not sponsor_user.sponsor_profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -47,7 +69,7 @@ async def get_sponsor_profile(
     return sponsor_user.sponsor_profile
 
 
-@router.put("/profile", response_model=SponsorProfileResponse)
+@router.put("/profile", response_model=UnifiedSponsorProfileResponse)
 async def update_sponsor_profile(
     profile_update: SponsorProfileUpdate,
     sponsor_user: User = Depends(get_sponsor_user),
@@ -70,7 +92,18 @@ async def update_sponsor_profile(
     db.commit()
     db.refresh(sponsor_user.sponsor_profile)
     
-    return sponsor_user.sponsor_profile
+    # Return unified profile response
+    unified_profile = UnifiedSponsorProfileResponse(
+        user_id=sponsor_user.id,
+        phone=sponsor_user.phone,
+        role=sponsor_user.role,
+        is_verified=sponsor_user.is_verified,
+        created_at=sponsor_user.created_at,
+        role_assigned_at=sponsor_user.role_assigned_at,
+        company_profile=sponsor_user.sponsor_profile
+    )
+    
+    return unified_profile
 
 
 # =====================================================
@@ -433,6 +466,8 @@ async def request_sponsor_upgrade(
     sponsor_profile = SponsorProfile(
         user_id=current_user.id,
         company_name=upgrade_request.company_name,
+        contact_name=upgrade_request.contact_name,
+        contact_email=upgrade_request.contact_email,
         website_url=upgrade_request.website_url,
         industry=upgrade_request.industry,
         description=upgrade_request.description,

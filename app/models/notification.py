@@ -5,7 +5,7 @@ Notification model for tracking SMS messages sent to users
 from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from app.database.database import Base
+from . import Base
 from app.core.datetime_utils import utc_now
 
 

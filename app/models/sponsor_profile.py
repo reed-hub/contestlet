@@ -7,7 +7,7 @@ Links to User model for authentication and role management.
 
 from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
-from app.database.database import Base
+from . import Base
 from app.core.datetime_utils import utc_now
 
 
@@ -21,6 +21,7 @@ class SponsorProfile(Base):
     company_name = Column(String(255), nullable=False, index=True)
     website_url = Column(String(500), nullable=True)
     logo_url = Column(String(500), nullable=True)
+    contact_name = Column(String(255), nullable=True, index=True)  # Contact person name
     contact_email = Column(String(255), nullable=True)
     contact_phone = Column(String(50), nullable=True)
     industry = Column(String(100), nullable=True)

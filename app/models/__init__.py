@@ -1,3 +1,8 @@
+from sqlalchemy.ext.declarative import declarative_base
+
+# Create Base for all models
+Base = declarative_base()
+
 from .user import User
 from .contest import Contest
 from .entry import Entry
@@ -9,6 +14,7 @@ from .sponsor_profile import SponsorProfile
 from .role_audit import RoleAudit, ContestApprovalAudit
 
 __all__ = [
+    "Base",
     "User", 
     "Contest", 
     "Entry", 

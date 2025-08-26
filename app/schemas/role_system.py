@@ -8,6 +8,7 @@ Pydantic models for multi-tier role system including:
 - Audit trail responses
 """
 
+import re
 from pydantic import BaseModel, Field, validator
 from datetime import datetime
 from typing import Optional, List, Literal
@@ -62,6 +63,7 @@ class SponsorProfileCreate(BaseModel):
     company_name: str = Field(..., min_length=2, max_length=255, description="Company name")
     website_url: Optional[str] = Field(None, max_length=500, description="Company website URL")
     logo_url: Optional[str] = Field(None, max_length=500, description="Company logo URL")
+    contact_name: Optional[str] = Field(None, max_length=255, description="Contact person name")
     contact_email: Optional[str] = Field(None, max_length=255, description="Contact email")
     contact_phone: Optional[str] = Field(None, max_length=50, description="Contact phone")
     industry: Optional[str] = Field(None, max_length=100, description="Industry sector")
@@ -73,6 +75,18 @@ class SponsorProfileCreate(BaseModel):
         if v and not (v.startswith('http://') or v.startswith('https://')):
             raise ValueError('URL must start with http:// or https://')
         return v
+    
+    @validator('contact_email')
+    def validate_contact_email(cls, v):
+        if v and not re.match(r"[^@]+@[^@]+\.[^@]+", v):
+            raise ValueError('Invalid email format')
+        return v
+    
+    @validator('contact_name')
+    def validate_contact_name(cls, v):
+        if v and len(v.strip()) < 2:
+            raise ValueError('Name must be at least 2 characters')
+        return v
 
 
 class SponsorProfileUpdate(BaseModel):
@@ -80,6 +94,7 @@ class SponsorProfileUpdate(BaseModel):
     company_name: Optional[str] = Field(None, min_length=2, max_length=255)
     website_url: Optional[str] = Field(None, max_length=500)
     logo_url: Optional[str] = Field(None, max_length=500)
+    contact_name: Optional[str] = Field(None, max_length=255)
     contact_email: Optional[str] = Field(None, max_length=255)
     contact_phone: Optional[str] = Field(None, max_length=50)
     industry: Optional[str] = Field(None, max_length=100)
@@ -90,6 +105,18 @@ class SponsorProfileUpdate(BaseModel):
         if v and not (v.startswith('http://') or v.startswith('https://')):
             raise ValueError('URL must start with http:// or https://')
         return v
+    
+    @validator('contact_email')
+    def validate_contact_email(cls, v):
+        if v and not re.match(r"[^@]+@[^@]+\.[^@]+", v):
+            raise ValueError('Invalid email format')
+        return v
+    
+    @validator('contact_name')
+    def validate_contact_name(cls, v):
+        if v and len(v.strip()) < 2:
+            raise ValueError('Name must be at least 2 characters')
+        return v
 
 
 class SponsorProfileResponse(BaseModel):
@@ -99,6 +126,7 @@ class SponsorProfileResponse(BaseModel):
     company_name: str
     website_url: Optional[str]
     logo_url: Optional[str]
+    contact_name: Optional[str]
     contact_email: Optional[str]
     contact_phone: Optional[str]
     industry: Optional[str]
@@ -112,6 +140,23 @@ class SponsorProfileResponse(BaseModel):
         from_attributes = True
 
 
+class UnifiedSponsorProfileResponse(BaseModel):
+    """Unified schema combining user and company profile information for frontend"""
+    # User information
+    user_id: int
+    phone: str
+    role: UserRole
+    is_verified: bool
+    created_at: datetime
+    role_assigned_at: datetime
+    
+    # Company profile information
+    company_profile: Optional[SponsorProfileResponse] = None
+    
+    class Config:
+        from_attributes = True
+
+
 # =====================================================
 # ROLE UPGRADE SCHEMAS
 # =====================================================
@@ -120,6 +165,8 @@ class RoleUpgradeRequest(BaseModel):
     """Schema for requesting role upgrades (user -> sponsor)"""
     target_role: Literal["sponsor"] = Field(..., description="Target role (currently only sponsor supported)")
     company_name: str = Field(..., min_length=2, max_length=255, description="Company name")
+    contact_name: Optional[str] = Field(None, max_length=255, description="Contact person name")
+    contact_email: Optional[str] = Field(None, max_length=255, description="Contact email")
     website_url: Optional[str] = Field(None, max_length=500, description="Company website")
     industry: Optional[str] = Field(None, max_length=100, description="Industry sector")
     description: Optional[str] = Field(None, description="Company description")

@@ -7,7 +7,7 @@ Provides audit trail for role assignments and modifications.
 
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
-from app.database.database import Base
+from . import Base
 from app.core.datetime_utils import utc_now
 
 

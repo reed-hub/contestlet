@@ -8,7 +8,7 @@ from app.schemas.otp import OTPRequest, OTPVerification, OTPResponse, OTPVerific
 from app.core.auth import create_access_token, create_user_token, verify_token
 from app.core.twilio_verify_service import twilio_verify_service
 from app.core.rate_limiter import rate_limiter
-from app.core.config import settings
+from app.core.config import get_settings
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -83,7 +83,8 @@ async def verify_otp(
     user = db.query(User).filter(User.phone == formatted_phone).first()
     if not user:
         # Create new user with default role
-        admin_phones = settings.get_admin_phones()
+        settings = get_settings()
+        admin_phones = settings.phone_set
         default_role = "admin" if formatted_phone in admin_phones else "user"
         
         user = User(
@@ -142,7 +143,8 @@ async def verify_phone(
         db.refresh(user)
     
     # Determine user role based on admin phone list  
-    admin_phones = settings.get_admin_phones()
+    settings = get_settings()
+    admin_phones = settings.phone_set
     user_role = "admin" if formatted_phone in admin_phones else "user"
     
     # Create JWT token with role

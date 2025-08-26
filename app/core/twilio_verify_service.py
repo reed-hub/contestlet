@@ -1,94 +1,127 @@
 import logging
 import phonenumbers
-from typing import Optional, Tuple
-from app.core.config import settings
+from typing import Optional, Tuple, Dict, Any
+from functools import wraps
+from app.core.config import get_settings
+from app.core.exceptions import raise_validation_error, raise_business_logic_error, ErrorCode
 
 logger = logging.getLogger(__name__)
 
 
 class TwilioVerifyService:
-    """
-    Service for handling OTP verification using Twilio Verify API.
-    Provides secure phone verification without storing OTP codes locally.
-    """
+    """Elegant Twilio Verify service with graceful fallbacks and async support"""
     
     def __init__(self):
-        self.client = None
-        self.verify_service_sid = None
+        self._settings = get_settings()
+        self._client = None
+        self._verify_service_sid = None
+        self._use_mock = True
+        self._twilio_available = False
         
+        self._initialize_twilio()
+        self._log_configuration()
+    
+    def _initialize_twilio(self):
+        """Initialize Twilio client with graceful fallbacks"""
         try:
-            self.use_mock = settings.USE_MOCK_SMS
-            self.verify_service_sid = settings.TWILIO_VERIFY_SERVICE_SID
-            
-            # Always try to import twilio, but handle gracefully
+            # Check if Twilio library is available
             try:
                 from twilio.rest import Client
-                self.twilio_available = True
+                self._twilio_available = True
             except ImportError:
                 logger.warning("Twilio library not available, using mock mode")
-                self.twilio_available = False
-                self.use_mock = True
+                self._twilio_available = False
+                self._use_mock = True
+                return
             
-            # If not using mock and twilio is available, initialize client
-            if not self.use_mock and self.twilio_available:
-                try:
-                    if not settings.TWILIO_ACCOUNT_SID or not settings.TWILIO_AUTH_TOKEN:
-                        logger.error("Twilio credentials not configured, falling back to mock")
-                        self.use_mock = True
-                    elif not self.verify_service_sid:
-                        logger.error("TWILIO_VERIFY_SERVICE_SID not configured, falling back to mock")
-                        self.use_mock = True
-                    else:
-                        from twilio.rest import Client
-                        self.client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-                        logger.info("Twilio client initialized successfully")
-                        
-                except Exception as e:
-                    logger.error(f"Failed to initialize Twilio client: {e}")
-                    self.use_mock = True
+            # Check configuration
+            if not self._settings.is_twilio_configured:
+                logger.warning("Twilio not fully configured, using mock mode")
+                self._use_mock = True
+                return
             
-            # Log final configuration
-            mode = "MOCK" if self.use_mock else "REAL"
-            logger.info(f"TwilioVerifyService initialized in {mode} mode")
+            # Initialize Twilio client
+            try:
+                from twilio.rest import Client
+                self._client = Client(
+                    self._settings.twilio_account_sid,
+                    self._settings.twilio_auth_token
+                )
+                self._verify_service_sid = self._settings.twilio_verify_service_sid
+                self._use_mock = False
+                logger.info("Twilio client initialized successfully")
+                
+            except Exception as e:
+                logger.error(f"Failed to initialize Twilio client: {e}")
+                self._use_mock = True
+                
+        except Exception as e:
+            logger.error(f"Critical error in Twilio initialization: {e}")
+            self._use_mock = True
+            self._twilio_available = False
+    
+    def _log_configuration(self):
+        """Log the final service configuration"""
+        mode = "MOCK" if self._use_mock else "REAL"
+        logger.info(f"TwilioVerifyService initialized in {mode} mode")
+    
+    @property
+    def is_mock_mode(self) -> bool:
+        """Check if service is running in mock mode"""
+        return self._use_mock
+    
+    @property
+    def is_available(self) -> bool:
+        """Check if Twilio service is available"""
+        return self._twilio_available and not self._use_mock
+    
+    def validate_phone_number(self, phone: str) -> Tuple[bool, str, Optional[str]]:
+        """Validate and format phone number with comprehensive validation"""
+        try:
+            # Handle mock mode test numbers
+            if self._use_mock:
+                return self._validate_mock_phone(phone)
+            
+            # Real phone number validation
+            return self._validate_real_phone(phone)
             
         except Exception as e:
-            logger.error(f"Critical error in TwilioVerifyService init: {e}")
-            # Fall back to safe defaults
-            self.use_mock = True
-            self.twilio_available = False
-            self.client = None
-            self.verify_service_sid = None
-
-    def validate_phone_number(self, phone: str) -> Tuple[bool, str, Optional[str]]:
-        """
-        Validate and format phone number using phonenumbers library.
-        In mock mode (development), allows test numbers.
+            logger.error(f"Phone validation error: {e}")
+            return False, phone, f"Validation error: {str(e)}"
+    
+    def _validate_mock_phone(self, phone: str) -> Tuple[bool, str, Optional[str]]:
+        """Validate phone numbers in mock mode"""
+        # Allow common test phone number patterns
+        test_patterns = [
+            "+15551234567", "+15559876543", "+15551111111", 
+            "+15552222222", "+15553333333", "+15554444444",
+            "+18187958204"  # Admin number
+        ]
         
-        Returns:
-            Tuple of (is_valid, formatted_phone, error_message)
-        """
+        if phone in test_patterns:
+            logger.info(f"MOCK MODE: Accepting test phone number {self._mask_phone(phone)}")
+            return True, phone, None
+        
+        # In mock mode, also accept any valid US format
         try:
-            # In mock mode, allow test numbers
-            if self.use_mock:
-                # Allow common test phone number patterns
-                test_patterns = [
-                    "+15551234567", "+15559876543", "+15551111111", 
-                    "+15552222222", "+15553333333", "+15554444444",
-                    "+18187958204"  # Admin number
-                ]
-                
-                if phone in test_patterns:
-                    logger.info(f"MOCK MODE: Accepting test phone number {self._mask_phone(phone)}")
-                    return True, phone, None
+            parsed = phonenumbers.parse(phone, "US")
+            if phonenumbers.is_valid_number(parsed):
+                formatted = phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164)
+                return True, formatted, None
+        except phonenumbers.NumberParseException:
+            pass
+        
+        return False, phone, "Invalid phone number format"
+    
+    def _validate_real_phone(self, phone: str) -> Tuple[bool, str, Optional[str]]:
+        """Validate real phone numbers with strict requirements"""
+        try:
+            parsed = phonenumbers.parse(phone, "US")
             
-            # Parse the phone number
-            parsed = phonenumbers.parse(phone, "US")  # Default to US region
-            
-            # Check if it's a valid number
             if not phonenumbers.is_valid_number(parsed):
                 return False, phone, "Invalid phone number"
             
-            # Check if it's a US number (optional requirement)
+            # Check if it's a US number
             if phonenumbers.region_code_for_number(parsed) != "US":
                 return False, phone, "Only US phone numbers are supported"
             
@@ -98,140 +131,138 @@ class TwilioVerifyService:
             
         except phonenumbers.NumberParseException as e:
             return False, phone, f"Phone number parse error: {e}"
-        except Exception as e:
-            logger.error(f"Unexpected error validating phone {phone}: {e}")
-            return False, phone, "Phone number validation failed"
-
+    
     async def send_verification(self, phone: str) -> Tuple[bool, str]:
-        """
-        Send OTP verification code using Twilio Verify API.
-        
-        Returns:
-            Tuple of (success, message)
-        """
+        """Send verification code via Twilio Verify API"""
         try:
             # Validate phone number first
             is_valid, formatted_phone, error = self.validate_phone_number(phone)
             if not is_valid:
-                logger.warning(f"Phone validation failed for {phone}: {error}")
                 return False, error or "Invalid phone number"
             
-            if self.use_mock:
-                return await self._send_mock_verification(formatted_phone)
-            else:
-                return await self._send_twilio_verification(formatted_phone)
-                
+            if self._use_mock:
+                return self._mock_send_verification(formatted_phone)
+            
+            return await self._real_send_verification(formatted_phone)
+            
         except Exception as e:
-            logger.error(f"Unexpected error in send_verification: {e}")
-            return False, "Failed to send verification code. Please try again."
-
-    async def check_verification(self, phone: str, code: str) -> Tuple[bool, str]:
-        """
-        Verify OTP code using Twilio Verify API.
-        
-        Returns:
-            Tuple of (success, message)
-        """
-        # Validate phone number first
-        is_valid, formatted_phone, error = self.validate_phone_number(phone)
-        if not is_valid:
-            return False, error or "Invalid phone number"
-        
-        if self.use_mock:
-            return await self._check_mock_verification(formatted_phone, code)
-        else:
-            return await self._check_twilio_verification(formatted_phone, code)
-
-    async def _send_mock_verification(self, phone: str) -> Tuple[bool, str]:
-        """Mock verification sending - just log the action"""
-        masked_phone = self._mask_phone(phone)
-        logger.info(f"MOCK VERIFICATION to {masked_phone}: Use code '123456'")
-        print(f"🔐 MOCK VERIFICATION to {masked_phone}: Use code '123456' for testing")
-        return True, "Verification code sent (mock)"
-
-    async def _send_twilio_verification(self, phone: str) -> Tuple[bool, str]:
-        """Send verification using Twilio Verify API"""
+            logger.error(f"Send verification error: {e}")
+            return False, f"Failed to send verification: {str(e)}"
+    
+    def _mock_send_verification(self, phone: str) -> Tuple[bool, str]:
+        """Mock verification sending for development"""
+        logger.info(f"MOCK: Verification code sent to {self._mask_phone(phone)}")
+        return True, "Verification code sent successfully (mock mode)"
+    
+    async def _real_send_verification(self, phone: str) -> Tuple[bool, str]:
+        """Real verification sending via Twilio"""
         try:
-            verification = self.client.verify.v2.services(
-                self.verify_service_sid
+            verification = self._client.verify.v2.services(
+                self._verify_service_sid
             ).verifications.create(
                 to=phone,
                 channel='sms'
             )
             
-            masked_phone = self._mask_phone(phone)
-            logger.info(f"Verification sent to {masked_phone}, status: {verification.status}")
+            logger.info(f"Verification sent to {self._mask_phone(phone)} via Twilio")
+            return True, "Verification code sent successfully"
             
-            if verification.status == 'pending':
-                return True, "Verification code sent successfully"
-            else:
-                return False, f"Failed to send verification: {verification.status}"
-                
         except Exception as e:
-            logger.error(f"Twilio Verify send error for {self._mask_phone(phone)}: {e}")
-            
-            # Handle specific Twilio errors
-            error_message = str(e)
-            if "rate limit" in error_message.lower():
-                return False, "Too many requests. Please wait before requesting another code."
-            elif "invalid" in error_message.lower() and "phone" in error_message.lower():
-                return False, "Invalid phone number format."
-            elif "blocked" in error_message.lower():
-                return False, "This phone number is blocked from receiving messages."
-            else:
-                return False, "Failed to send verification code. Please try again."
-
-    async def _check_mock_verification(self, phone: str, code: str) -> Tuple[bool, str]:
-        """Mock verification checking - always accept '123456'"""
-        masked_phone = self._mask_phone(phone)
-        
-        if code == "123456":
-            logger.info(f"MOCK VERIFICATION SUCCESS for {masked_phone}")
-            return True, "Verification successful (mock)"
-        else:
-            logger.info(f"MOCK VERIFICATION FAILED for {masked_phone}: wrong code {code}")
-            return False, "Invalid verification code (mock)"
-
-    async def _check_twilio_verification(self, phone: str, code: str) -> Tuple[bool, str]:
-        """Check verification using Twilio Verify API"""
+            logger.error(f"Twilio verification error: {e}")
+            return False, f"Failed to send verification: {str(e)}"
+    
+    async def check_verification(self, phone: str, code: str) -> Tuple[bool, str]:
+        """Check verification code via Twilio Verify API"""
         try:
-            verification_check = self.client.verify.v2.services(
-                self.verify_service_sid
+            # Validate phone number first
+            is_valid, formatted_phone, error = self.validate_phone_number(phone)
+            if not is_valid:
+                return False, error or "Invalid phone number"
+            
+            if self._use_mock:
+                return self._mock_check_verification(formatted_phone, code)
+            
+            return await self._real_check_verification(formatted_phone, code)
+            
+        except Exception as e:
+            logger.error(f"Check verification error: {e}")
+            return False, f"Failed to check verification: {str(e)}"
+    
+    def _mock_check_verification(self, phone: str, code: str) -> Tuple[bool, str]:
+        """Mock verification checking for development"""
+        # Accept common test codes
+        test_codes = ["123456", "000000", "111111", "999999"]
+        
+        if code in test_codes:
+            logger.info(f"MOCK: Verification successful for {self._mask_phone(phone)}")
+            return True, "Verification successful (mock mode)"
+        
+        return False, "Invalid verification code"
+    
+    async def _real_check_verification(self, phone: str, code: str) -> Tuple[bool, str]:
+        """Real verification checking via Twilio"""
+        try:
+            verification_check = self._client.verify.v2.services(
+                self._verify_service_sid
             ).verification_checks.create(
                 to=phone,
                 code=code
             )
             
-            masked_phone = self._mask_phone(phone)
-            logger.info(f"Verification check for {masked_phone}, status: {verification_check.status}")
-            
             if verification_check.status == 'approved':
+                logger.info(f"Verification successful for {self._mask_phone(phone)}")
                 return True, "Verification successful"
-            elif verification_check.status == 'pending':
-                return False, "Invalid or expired verification code"
             else:
-                return False, f"Verification failed: {verification_check.status}"
+                logger.warning(f"Verification failed for {self._mask_phone(phone)}: {verification_check.status}")
+                return False, "Invalid verification code"
                 
         except Exception as e:
-            logger.error(f"Twilio Verify check error for {self._mask_phone(phone)}: {e}")
-            
-            # Handle specific Twilio errors
-            error_message = str(e)
-            if "expired" in error_message.lower():
-                return False, "Verification code has expired. Please request a new one."
-            elif "invalid" in error_message.lower():
-                return False, "Invalid verification code."
-            elif "rate limit" in error_message.lower():
-                return False, "Too many verification attempts. Please wait before trying again."
-            else:
-                return False, "Verification failed. Please try again."
-
+            logger.error(f"Twilio verification check error: {e}")
+            return False, f"Failed to check verification: {str(e)}"
+    
     def _mask_phone(self, phone: str) -> str:
-        """Mask phone number for logging (security)"""
-        if len(phone) > 4:
-            return phone[:-4] + "****"
-        return "****"
+        """Mask phone number for logging privacy"""
+        if len(phone) >= 6:
+            return f"{phone[:2]}***{phone[-4:]}"
+        return phone
+    
+    def get_service_status(self) -> Dict[str, Any]:
+        """Get service status and configuration"""
+        return {
+            "mode": "mock" if self._use_mock else "real",
+            "twilio_available": self._twilio_available,
+            "configured": self._settings.is_twilio_configured,
+            "verify_service_sid": self._verify_service_sid,
+            "account_sid": self._settings.twilio_account_sid[:8] + "..." if self._settings.twilio_account_sid else None
+        }
 
 
-# Global Twilio Verify service instance
+# Global service instance
 twilio_verify_service = TwilioVerifyService()
+
+
+# Decorator for phone validation
+def validate_phone(func):
+    """Decorator to validate phone numbers before processing"""
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        # Extract phone from kwargs or first argument
+        phone = kwargs.get('phone')
+        if not phone and args:
+            # Try to find phone in the first argument (usually a Pydantic model)
+            if hasattr(args[0], 'phone'):
+                phone = args[0].phone
+        
+        if phone:
+            is_valid, formatted_phone, error = twilio_verify_service.validate_phone_number(phone)
+            if not is_valid:
+                raise_validation_error(error or "Invalid phone number", "phone")
+            
+            # Update the phone with formatted version
+            if kwargs.get('phone'):
+                kwargs['phone'] = formatted_phone
+            elif args and hasattr(args[0], 'phone'):
+                args[0].phone = formatted_phone
+        
+        return await func(*args, **kwargs)
+    return wrapper

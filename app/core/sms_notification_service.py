@@ -22,13 +22,13 @@ class SMSNotificationService:
         self.use_mock = settings.USE_MOCK_SMS or self.env_config.get("use_mock_sms", False)
         
         if not self.use_mock:
-            if not all([settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN, settings.TWILIO_PHONE_NUMBER]):
+            if not all([settings.twilio_account_sid, settings.twilio_auth_token, settings.twilio_phone_number]):
                 logger.warning("Twilio credentials not configured. SMS notifications will use mock mode.")
                 self.use_mock = True
             else:
                 try:
-                    self.client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-                    self.from_phone = settings.TWILIO_PHONE_NUMBER
+                    self.client = Client(settings.twilio_account_sid, settings.twilio_auth_token)
+                    self.from_phone = settings.twilio_phone_number
                     logger.info("SMS notification service initialized with Twilio")
                 except Exception as e:
                     logger.error(f"Failed to initialize Twilio client: {e}")

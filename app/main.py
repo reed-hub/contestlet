@@ -1,132 +1,161 @@
-import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.database import Base, engine
-from app.routers import auth_router, contests_router, entries_router, admin_router
-from app.routers.admin_profile import router as admin_profile_router
-from app.routers.location import router as location_router
-from app.routers.sponsor import router as sponsor_router
-from app.routers.user import router as user_router
-from app.core.vercel_config import get_vercel_environment, get_environment_config, log_environment_info
-
-# Log environment info for debugging
-env_info = log_environment_info()
-env_config = get_environment_config()
-
-# Log database configuration
-from app.database.database import get_database_url
-database_url = get_database_url()
-print(f"🗄️ Database URL: {database_url}")
-
-# Create database tables
-Base.metadata.create_all(bind=engine)
-
-# Create FastAPI app with environment-aware configuration
-app = FastAPI(
-    title="Contestlet API",
-    description=f"Backend API for Contestlet - micro sweepstakes contests platform ({env_config['environment']})",
-    version="1.0.0",
-    debug=env_config.get("debug", False)
-)
-
-# Add environment-aware CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=env_config.get("cors_origins", ["*"]),
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
-)
-
-# Add exception handler to ensure CORS headers are included even for 500 errors
-from fastapi import Request
 from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
+from app.core.config import get_settings
+from app.database.database import db_manager
+from app.core.vercel_config import get_environment_config
+import importlib
+import os
 
-@app.exception_handler(500)
-async def internal_server_error_handler(request: Request, exc: Exception):
-    """Ensure CORS headers are included even for 500 errors"""
-    print(f"🚨 500 Error Handler: {exc}")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager"""
+    # Startup
+    print("🚀 Starting Contestlet API...")
     
-    response = JSONResponse(
-        status_code=500,
-        content={"detail": "Internal server error"}
+    # Create database tables
+    db_manager.create_tables()
+    print("🗄️ Database tables created")
+    
+    # Log environment info
+    env_info = get_environment_config()
+    print(f"🌍 Environment: {env_info.get('environment', 'development')}")
+    
+    yield
+    
+    # Shutdown
+    print("🛑 Shutting down Contestlet API...")
+
+
+def create_app() -> FastAPI:
+    """Create and configure FastAPI application"""
+    settings = get_settings()
+    
+    app = FastAPI(
+        title="Contestlet API",
+        description="Backend API for Contestlet - micro sweepstakes contests platform",
+        version="1.0.0",
+        debug=settings.debug,
+        lifespan=lifespan
     )
     
-    # Get origin from request
-    origin = request.headers.get("origin")
-    cors_origins = env_config.get("cors_origins", [])
+    # Add CORS middleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.allow_origins,
+        allow_credentials=settings.allow_credentials,
+        allow_methods=settings.allow_methods,
+        allow_headers=settings.allow_headers,
+    )
     
-    print(f"🔍 Origin: {origin}, Allowed origins: {cors_origins}")
+    return app
+
+
+def auto_discover_routers() -> list:
+    """Automatically discover and import router modules"""
+    router_modules = []
+    routers_dir = os.path.join(os.path.dirname(__file__), "routers")
     
-    # Always add CORS headers for development
-    if env_config.get("environment") == "development":
-        response.headers["Access-Control-Allow-Origin"] = origin or "http://localhost:3000"
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "*"
-    elif origin and origin in cors_origins:
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "*"
+    for filename in os.listdir(routers_dir):
+        if filename.endswith(".py") and not filename.startswith("__"):
+            module_name = filename[:-3]
+            try:
+                module = importlib.import_module(f"app.routers.{module_name}")
+                if hasattr(module, "router"):
+                    router_modules.append(module.router)
+                    print(f"🔌 Loaded router: {module_name}")
+            except ImportError as e:
+                print(f"⚠️ Failed to load router {module_name}: {e}")
     
-    return response
-
-# Include routers
-app.include_router(auth_router)
-app.include_router(contests_router)
-app.include_router(entries_router)
-app.include_router(admin_router)
-app.include_router(admin_profile_router)
-app.include_router(location_router)
-app.include_router(sponsor_router)
-app.include_router(user_router)
+    return router_modules
 
 
-@app.get("/")
-async def root():
-    """Root endpoint with environment info"""
-    return {
-        "message": "Welcome to Contestlet API", 
-        "status": "healthy",
-        "environment": env_config['environment'],
-        "version": "1.0.0"
-    }
-
-
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "environment": env_config['environment'],
-        "vercel_env": os.getenv("VERCEL_ENV", "local"),
-        "git_branch": os.getenv("VERCEL_GIT_COMMIT_REF", "develop")
-    }
-
-
-@app.get("/manifest.json")
-async def get_manifest():
-    """PWA manifest file for frontend compatibility"""
-    return {
-        "name": "Contestlet",
-        "short_name": "Contestlet",
-        "description": "Micro sweepstakes contests platform",
-        "start_url": "/",
-        "display": "standalone",
-        "background_color": "#ffffff",
-        "theme_color": "#000000",
-        "icons": [
-            {
-                "src": "/favicon.ico",
-                "sizes": "64x64 32x32 24x24 16x16",
-                "type": "image/x-icon"
+def setup_exception_handlers(app: FastAPI):
+    """Setup custom exception handlers"""
+    
+    @app.exception_handler(500)
+    async def internal_server_error_handler(request, exc):
+        """Handle internal server errors with CORS headers"""
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error", "error": str(exc)},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Credentials": "true"
             }
-        ]
-    }
+        )
 
 
+def setup_routes(app: FastAPI):
+    """Setup application routes"""
+    
+    # Root endpoint
+    @app.get("/")
+    async def root():
+        """Root endpoint with environment info"""
+        settings = get_settings()
+        return {
+            "message": "Welcome to Contestlet API",
+            "status": "healthy",
+            "environment": settings.environment,
+            "version": "1.0.0"
+        }
+    
+    # Health check endpoint
+    @app.get("/health")
+    async def health_check():
+        """Health check endpoint"""
+        return {
+            "status": "healthy",
+            "environment": get_settings().environment,
+            "vercel_env": os.getenv("VERCEL_ENV", "local"),
+            "git_branch": os.getenv("VERCEL_GIT_COMMIT_REF", "develop")
+        }
+    
+    # PWA manifest
+    @app.get("/manifest.json")
+    async def get_manifest():
+        """PWA manifest file for frontend compatibility"""
+        return {
+            "name": "Contestlet",
+            "short_name": "Contestlet",
+            "description": "Micro sweepstakes contests platform",
+            "start_url": "/",
+            "display": "standalone",
+            "background_color": "#ffffff",
+            "theme_color": "#000000",
+            "icons": [
+                {
+                    "src": "/favicon.ico",
+                    "sizes": "64x64 32x32 24x24 16x16",
+                    "type": "image/x-icon"
+                }
+            ]
+        }
+
+
+# Create application instance
+app = create_app()
+
+# Setup exception handlers
+setup_exception_handlers(app)
+
+# Setup routes
+setup_routes(app)
+
+# Auto-discover and include routers
+routers = auto_discover_routers()
+for router in routers:
+    app.include_router(router)
+
+# Development server entry point
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(
+        "app.main:app", 
+        host="0.0.0.0", 
+        port=8000, 
+        reload=True
+    )

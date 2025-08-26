@@ -1,45 +1,136 @@
+from pydantic import Field, validator, computed_field
 from pydantic_settings import BaseSettings
-from typing import Optional
+from typing import Optional, List, Set
+from functools import lru_cache
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 class Settings(BaseSettings):
-    SECRET_KEY: str = "your-super-secret-key-change-in-production"
-    DATABASE_URL: str = "sqlite:///./contestlet.db"
-    JWT_ALGORITHM: str = "HS256"
-    JWT_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
+    """Main application settings with environment-specific configuration"""
     
-    # Twilio settings
-    TWILIO_ACCOUNT_SID: Optional[str] = None
-    TWILIO_AUTH_TOKEN: Optional[str] = None
-    TWILIO_PHONE_NUMBER: Optional[str] = None  # Required for SMS notifications
-    TWILIO_VERIFY_SERVICE_SID: Optional[str] = None
-    USE_MOCK_SMS: bool = True  # Set to False to use real Twilio services
+    # Environment
+    environment: str = Field(default="development", description="Application environment")
+    debug: bool = Field(default=False, description="Debug mode")
+    
+    # Database
+    database_url: str = Field(
+        default="sqlite:///./contestlet.db",
+        description="Database connection URL"
+    )
+    
+    # Security
+    secret_key: str = Field(
+        default="your-super-secret-key-change-in-production",
+        description="JWT secret key"
+    )
+    jwt_algorithm: str = Field(default="HS256", description="JWT algorithm")
+    jwt_expire_minutes: int = Field(default=1440, description="JWT expiration in minutes")
+    jwt_refresh_expire_minutes: int = Field(default=10080, description="JWT refresh expiration in minutes")
+    
+    # Twilio
+    twilio_account_sid: Optional[str] = Field(default=None, description="Twilio Account SID")
+    twilio_auth_token: Optional[str] = Field(default=None, description="Twilio Auth Token")
+    twilio_phone_number: Optional[str] = Field(default=None, description="Twilio Phone Number")
+    twilio_verify_service_sid: Optional[str] = Field(default=None, description="Twilio Verify Service SID")
+    use_mock_sms: bool = Field(default=True, description="Use mock SMS for development")
     
     # Rate limiting
-    RATE_LIMIT_REQUESTS: int = 5  # Max OTP requests per window
-    RATE_LIMIT_WINDOW: int = 300  # Window in seconds (5 minutes)
+    rate_limit_requests: int = Field(default=5, description="Max requests per window")
+    rate_limit_window: int = Field(default=300, description="Rate limit window in seconds")
+    redis_url: str = Field(default="redis://localhost:6379", description="Redis URL for rate limiting")
     
-    # Redis settings (for rate limiting)
-    REDIS_URL: str = "redis://localhost:6379"
+    # Admin
+    admin_phones: str = Field(default="+18187958204", description="Comma-separated admin phone numbers")
+    admin_token: str = Field(
+        default="contestlet-admin-super-secret-token-change-in-production",
+        description="Legacy admin token for backward compatibility"
+    )
     
-    # Admin settings
-    ADMIN_TOKEN: str = "contestlet-admin-super-secret-token-change-in-production"  # Legacy support
-    ADMIN_PHONES: str = "+18187958204"  # Comma-separated list of admin phone numbers
+    # CORS
+    allow_origins: List[str] = Field(
+        default_factory=lambda: ["http://localhost:3000", "http://localhost:8000"],
+        description="Allowed CORS origins"
+    )
+    allow_credentials: bool = Field(default=True, description="Allow credentials")
+    allow_methods: List[str] = Field(
+        default=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        description="Allowed HTTP methods"
+    )
+    allow_headers: List[str] = Field(default=["*"], description="Allowed headers")
     
-    def get_admin_phones(self) -> set:
+    @validator('environment')
+    def validate_environment(cls, v):
+        """Validate environment setting"""
+        valid_environments = {'development', 'staging', 'production'}
+        if v not in valid_environments:
+            raise ValueError(f'Environment must be one of: {valid_environments}')
+        return v
+    
+    @computed_field
+    @property
+    def is_development(self) -> bool:
+        return self.environment == "development"
+    
+    @computed_field
+    @property
+    def is_production(self) -> bool:
+        return self.environment == "production"
+    
+    @computed_field
+    @property
+    def is_staging(self) -> bool:
+        return self.environment == "staging"
+    
+    @computed_field
+    @property
+    def is_sqlite(self) -> bool:
+        return "sqlite" in self.database_url.lower()
+    
+    @computed_field
+    @property
+    def is_postgresql(self) -> bool:
+        return "postgresql" in self.database_url.lower()
+    
+    @computed_field
+    @property
+    def connect_args(self) -> dict:
+        """SQLite-specific connection arguments"""
+        return {"check_same_thread": False} if self.is_sqlite else {}
+    
+    @computed_field
+    @property
+    def jwt_expire_delta(self) -> int:
+        """JWT expiration in seconds"""
+        return self.jwt_expire_minutes * 60
+    
+    @computed_field
+    @property
+    def is_twilio_configured(self) -> bool:
+        """Check if Twilio is properly configured"""
+        return all([self.twilio_account_sid, self.twilio_auth_token, self.twilio_verify_service_sid])
+    
+    @computed_field
+    @property
+    def phone_set(self) -> Set[str]:
         """Get set of normalized admin phone numbers"""
-        if not self.ADMIN_PHONES:
+        if not self.admin_phones:
             return set()
-        
-        admin_phones = set()
-        for phone in self.ADMIN_PHONES.split(','):
-            phone = phone.strip()
-            if phone:
-                admin_phones.add(phone)
-        return admin_phones
+        return {phone.strip() for phone in self.admin_phones.split(',') if phone.strip()}
     
     class Config:
         env_file = ".env"
+        case_sensitive = False
 
 
-settings = Settings()
+@lru_cache()
+def get_settings() -> Settings:
+    """Get cached settings instance"""
+    return Settings()
+
+
+# Don't load settings at module level - let it be loaded when needed
+# settings = get_settings()

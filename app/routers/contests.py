@@ -53,6 +53,27 @@ async def get_active_contests(
     )
 
 
+@router.get("/{contest_id}", response_model=ContestResponse)
+async def get_contest_details(
+    contest_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get public details for a specific contest (no authentication required)"""
+    # Get contest with all basic details
+    contest = db.query(Contest).filter(Contest.id == contest_id).first()
+    
+    if not contest:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Contest not found"
+        )
+    
+    # Return contest details for public viewing
+    # Note: This endpoint is public and doesn't require authentication
+    # It returns contest information suitable for public display
+    return contest
+
+
 @router.get("/nearby", response_model=ContestListResponse)
 async def get_nearby_contests(
     lat: float = Query(..., description="Latitude of user location"),

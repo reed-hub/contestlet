@@ -1,10 +1,12 @@
-# 🎯 Contestlet - Micro Sweepstakes Platform
+# 🎯 Contestlet - Enterprise Micro Sweepstakes Platform
 
-**A comprehensive FastAPI backend for hosting micro sweepstakes-style contests with advanced features, SMS integration, and complete form support.**
+**A production-ready FastAPI backend for hosting micro sweepstakes contests with enterprise-grade security, complete form support, and multi-environment deployment.**
 
 [![Production Status](https://img.shields.io/badge/Production-Live-green)](https://contestlet.vercel.app)
 [![API Documentation](https://img.shields.io/badge/API-Documented-blue)](https://contestlet.vercel.app/docs)
 [![Form Support](https://img.shields.io/badge/Form%20Support-100%25-brightgreen)](#form-support)
+[![Security](https://img.shields.io/badge/Security-Enterprise%20Grade-red)](#security--compliance)
+[![RLS](https://img.shields.io/badge/RLS-Enabled-blue)](#security--compliance)
 
 ---
 
@@ -12,15 +14,17 @@
 
 ### **🔐 Authentication & Security**
 - **OTP-based Authentication** using phone numbers with Twilio Verify API
-- **Admin Role-based Access** with JWT tokens and role validation
+- **Enterprise Security** with Row Level Security (RLS) at database level
+- **JWT Token Management** with role-based access control
 - **Rate Limiting** to prevent OTP abuse and spam
 - **COPPA Compliance** with age validation (13+ minimum)
+- **User Data Isolation** - users can only access their own data
 
 ### **🎯 Contest Management**
 - **Complete Form Support** - 100% of frontend form fields supported
 - **Advanced Contest Configuration** - Types, entry methods, winner selection
 - **Entry Limitations** - Per-person and total entry limits
-- **Geographic Restrictions** - Location-based contest filtering
+- **Geographic Restrictions** - Location-based contest filtering with radius targeting
 - **Contest Status System** - Time-based status computation (upcoming, active, ended, complete)
 
 ### **📱 SMS Integration**
@@ -28,23 +32,45 @@
 - **Template Variables** - Dynamic content insertion ({contest_name}, {prize_description}, etc.)
 - **Winner Notifications** - Automated SMS to contest winners
 - **Environment-aware SMS** - Mock for development, real SMS for staging/production
+- **Audit Logging** - Complete SMS notification history
 
 ### **📍 Geolocation & Discovery**
+- **Smart Location System** - Multiple targeting types (radius, states, custom)
 - **Geofencing** with latitude/longitude coordinates
 - **Nearby Contests API** using Haversine distance calculation
-- **Radius-based Search** with distance sorting
+- **Radius-based Search** with distance sorting and address validation
 
 ### **🛡️ Legal & Compliance**
-- **Mandatory Official Rules** for all contests
+- **Mandatory Official Rules** for all contests with validation
 - **Prize Value Tracking** with USD validation
 - **Sponsor Information** and terms & conditions
-- **Audit Logging** for all admin actions
+- **Audit Logging** for all admin actions and role changes
+- **GDPR Ready** with proper data isolation
 
 ### **🗄️ Database & Infrastructure**
 - **Multi-environment Support** - Development, Staging, Production
-- **Supabase Integration** with environment branching
+- **Supabase Integration** with environment branching and RLS
 - **SQLAlchemy ORM** with comprehensive relationships
 - **Timezone-aware** datetime handling with UTC storage
+- **Row Level Security** - Database-level access control
+
+---
+
+## 🔒 **Security & Compliance**
+
+### **Enterprise-Grade Security**
+- **Row Level Security (RLS)** - Database-level access control
+- **User Data Isolation** - Complete separation of user data
+- **Role-Based Access Control** - Admin, Sponsor, User permissions
+- **JWT Token Security** - Stateless authentication with expiration
+- **Rate Limiting** - Protection against abuse and attacks
+
+### **Data Protection**
+- **User Privacy** - Users cannot access other users' data
+- **Contest Security** - Contest data properly isolated
+- **Admin Oversight** - Controlled administrative access
+- **Audit Trail** - Complete logging of all actions
+- **Compliance Ready** - Meets enterprise security standards
 
 ---
 
@@ -69,6 +95,10 @@ The backend now provides **complete support** for all frontend contest creation 
 ### **📖 Complete Documentation Index**
 👉 **[Documentation Hub](./docs/README.md)** - Central documentation index
 
+### **🚀 For New Developers**
+- **[Cursor Agent Onboarding](./CURSOR_AGENT_ONBOARDING.md)** - Complete newcomer guide
+- **[Quick Start Guide](./QUICK_START.md)** - Get running in 10 minutes
+
 ### **🔧 For Developers**
 - **[API Integration Guide](./docs/api-integration/FRONTEND_INTEGRATION_GUIDE.md)** - Complete frontend integration
 - **[API Quick Reference](./docs/api-integration/API_QUICK_REFERENCE.md)** - Endpoint reference
@@ -90,40 +120,56 @@ The backend now provides **complete support** for all frontend contest creation 
 
 ```
 contestlet/
-├── app/
-│   ├── core/              # 🔧 Core services & utilities
-│   │   ├── config.py      # Environment configuration
-│   │   ├── auth.py        # JWT authentication
-│   │   ├── admin_auth.py  # Admin role validation
+├── app/                          # 🚀 Main application code
+│   ├── core/                    # 🔧 Core services & utilities
+│   │   ├── config.py           # Environment configuration
+│   │   ├── auth.py             # JWT authentication
+│   │   ├── admin_auth.py       # Admin role validation
 │   │   ├── twilio_verify_service.py  # OTP verification
 │   │   ├── sms_notification_service.py  # SMS messaging
-│   │   ├── timezone_utils.py  # Timezone handling
-│   │   └── vercel_config.py   # Environment detection
-│   ├── database/          # 🗄️ Database configuration
-│   ├── models/            # 📊 SQLAlchemy models
-│   │   ├── user.py        # User model
-│   │   ├── contest.py     # Contest model (enhanced)
-│   │   ├── entry.py       # Entry model
-│   │   ├── sms_template.py # SMS template model
-│   │   ├── official_rules.py # Legal compliance
-│   │   └── notification.py   # SMS logging
-│   ├── routers/           # 🛣️ API endpoints
-│   │   ├── auth.py        # Authentication endpoints
-│   │   ├── contests.py    # Public contest API
-│   │   ├── admin.py       # Admin management
-│   │   └── entries.py     # Entry management
-│   ├── schemas/           # 📝 Pydantic validation
-│   │   ├── admin.py       # Admin schemas (enhanced)
-│   │   ├── contest.py     # Contest schemas
-│   │   ├── sms_template.py # SMS template schemas
-│   │   └── official_rules.py # Legal schemas
-│   ├── services/          # 🔄 Business logic
-│   │   └── campaign_import_service.py # Campaign import
-│   └── main.py            # 🚀 FastAPI application
-├── docs/                  # 📚 Comprehensive documentation
-├── environments/          # 🌍 Environment templates
-├── scripts/              # 🔧 Deployment scripts
-└── requirements.txt      # 📦 Dependencies
+│   │   ├── timezone_utils.py   # Timezone handling
+│   │   └── vercel_config.py    # Environment detection
+│   ├── database/               # 🗄️ Database configuration
+│   │   └── database.py         # Connection and session management
+│   ├── models/                 # 📊 SQLAlchemy models
+│   │   ├── user.py             # User model with role system
+│   │   ├── contest.py          # Enhanced contest model
+│   │   ├── entry.py            # Contest entry model
+│   │   ├── sms_template.py     # SMS template model
+│   │   ├── official_rules.py   # Legal compliance
+│   │   └── notification.py     # SMS audit logging
+│   ├── routers/                # 🛣️ API endpoints
+│   │   ├── auth.py             # Authentication endpoints
+│   │   ├── contests.py         # Public contest API
+│   │   ├── admin.py            # Admin management
+│   │   ├── entries.py          # Entry management
+│   │   ├── user.py             # User profile management
+│   │   ├── location.py         # Geolocation services
+│   │   ├── sponsor.py          # Sponsor profile management
+│   │   └── admin_profile.py    # Admin profile management
+│   ├── schemas/                # 📝 Pydantic validation schemas
+│   │   ├── auth.py             # Authentication schemas
+│   │   ├── contest.py          # Contest validation
+│   │   ├── user.py             # User validation
+│   │   └── admin.py            # Admin validation
+│   ├── services/               # 🔄 Business logic
+│   │   └── campaign_import_service.py  # Campaign import
+│   └── main.py                 # 🚀 FastAPI application entry point
+├── docs/                       # 📚 Comprehensive documentation
+│   ├── overview/               # 📋 Project status and overview
+│   ├── security/               # 🔒 Security implementation
+│   ├── development/            # 👨‍💻 Development guides
+│   ├── migrations/             # 🗄️ Database migrations
+│   ├── testing/                # 🧪 Testing procedures
+│   ├── api-integration/        # 🔌 API documentation
+│   ├── backend/                # 🏗️ Backend guides
+│   ├── deployment/             # 🚀 Deployment guides
+│   ├── database/               # 🗄️ Database guides
+│   └── troubleshooting/        # 🔧 Issue resolution
+├── environments/               # 🌍 Environment templates
+├── scripts/                    # 🔧 Deployment scripts
+├── requirements.txt            # 📦 Python dependencies
+└── vercel.json                # 🚀 Vercel deployment config
 ```
 
 ---
@@ -142,7 +188,7 @@ cp env.example .env
 # Edit .env with your configuration
 
 # Run the server
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### **2. Access the API**
@@ -226,7 +272,7 @@ class SMSTemplate:
 ```
 
 ### **Other Models**
-- **User**: Phone-based authentication
+- **User**: Phone-based authentication with role system
 - **Entry**: Contest participation with winner tracking
 - **OfficialRules**: Legal compliance requirements
 - **Notification**: SMS logging and audit trail
@@ -237,19 +283,22 @@ class SMSTemplate:
 ## 🌍 **Environment Configuration**
 
 ### **Development**
-- **Database**: Local Supabase or SQLite fallback
+- **Database**: Local SQLite with fallback to Supabase
 - **SMS**: Mock OTP (printed to console)
 - **CORS**: Localhost origins enabled
+- **Security**: Basic authentication (no RLS)
 
 ### **Staging**
-- **Database**: Supabase staging branch
+- **Database**: Supabase staging branch with RLS enabled
 - **SMS**: Real Twilio SMS (whitelist enabled)
 - **URL**: Preview deployment on Vercel
+- **Security**: Full RLS policies active
 
 ### **Production**
-- **Database**: Supabase production branch
+- **Database**: Supabase production branch with RLS enabled
 - **SMS**: Full Twilio SMS integration
 - **URL**: Production domain
+- **Security**: Enterprise-grade RLS enforcement
 
 ---
 
@@ -365,29 +414,38 @@ curl -X POST "http://localhost:8000/admin/contests" \
 - CORS and security headers
 - Rate limiting and validation
 
+### **✅ Security**
+- Row Level Security (RLS) enabled
+- User data isolation
+- Role-based access control
+- JWT token management
+- Audit logging and monitoring
+
 ### **✅ Documentation**
 - Complete API documentation
 - Frontend integration guides
 - Deployment instructions
 - Troubleshooting guides
+- Cursor agent onboarding
 
 ---
 
 ## 📈 **What's New**
 
 ### **🎉 Latest Updates**
-- **100% Form Support**: All 25 frontend form fields now supported
-- **SMS Templates**: Custom messaging with variable substitution
-- **Advanced Contest Config**: Entry limits, age validation, geographic restrictions
-- **Campaign Import**: JSON-based contest creation
-- **Enhanced Admin Tools**: Complete contest management suite
+- **Enterprise Security** - Row Level Security (RLS) implemented
+- **100% Form Support** - All 25 frontend form fields now supported
+- **SMS Templates** - Custom messaging with variable substitution
+- **Advanced Contest Config** - Entry limits, age validation, geographic restrictions
+- **Campaign Import** - JSON-based contest creation
+- **Enhanced Admin Tools** - Complete contest management suite
 
 ### **🔄 Recent Improvements**
-- Simplified contest status system (time-based)
-- Enhanced error handling with CORS support
-- Comprehensive validation and business logic
-- Multi-environment SMS configuration
-- Complete documentation overhaul
+- **Database Security** - RLS policies for all tables
+- **User Isolation** - Complete data separation
+- **Admin Controls** - Enhanced role-based permissions
+- **Multi-Environment** - Staging and production deployment
+- **Comprehensive Documentation** - Industry-standard guides
 
 ---
 
@@ -397,15 +455,18 @@ curl -X POST "http://localhost:8000/admin/contests" \
 2. All new features require comprehensive testing
 3. Update documentation for any API changes
 4. Ensure 100% form field support is maintained
+5. Follow security best practices for all changes
 
 ---
 
 ## 📞 **Support**
 
 - **API Documentation**: `/docs` endpoint
+- **Cursor Agent Guide**: `CURSOR_AGENT_ONBOARDING.md`
+- **Security Updates**: `docs/security/FRONTEND_RLS_UPDATE.md`
 - **Issues**: Check troubleshooting guides in `docs/troubleshooting/`
 - **Integration**: See `docs/api-integration/` for frontend guides
 
 ---
 
-**🎯 Contestlet is production-ready with 100% form support and comprehensive SMS integration!** 🚀
+**🎯 Contestlet is production-ready with enterprise-grade security, 100% form support, and comprehensive SMS integration!** 🚀

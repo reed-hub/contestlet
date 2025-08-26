@@ -4,7 +4,7 @@ Admin Profile model for storing admin preferences including timezone settings
 
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
 from datetime import datetime
-from app.database.database import Base
+from . import Base
 
 
 class AdminProfile(Base):
