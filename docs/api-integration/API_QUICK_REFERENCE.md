@@ -188,6 +188,68 @@ Authorization: Bearer <token>
 
 ---
 
+## 👤 **User Profile (Unified Endpoints)**
+
+### **Get Current User Profile**
+```bash
+GET /users/me
+Authorization: Bearer <token>
+
+# Admin/User Response
+{
+  "id": 1,
+  "phone": "+18187958204",
+  "role": "admin",
+  "is_verified": true,
+  "created_at": "2025-08-22T14:56:48.359178",
+  "role_assigned_at": "2025-08-24T17:26:09"
+}
+
+# Sponsor Response (includes company profile)
+{
+  "user_id": 2,
+  "phone": "+15551234567", 
+  "role": "sponsor",
+  "is_verified": true,
+  "created_at": "2025-08-24T21:56:34",
+  "role_assigned_at": "2025-08-24T17:33:06.551967",
+  "company_profile": {
+    "id": 3,
+    "company_name": "Test Company",
+    "website_url": "https://testcompany.com",
+    "industry": "Technology",
+    "description": "Company description"
+  }
+}
+```
+
+### **Update Current User Profile**
+```bash
+PUT /users/me
+Authorization: Bearer <token>
+Content-Type: application/json
+
+# For sponsors (company profile updates)
+{
+  "company_name": "Updated Company Name",
+  "website_url": "https://newwebsite.com", 
+  "contact_name": "John Doe",
+  "contact_email": "john@company.com",
+  "industry": "Technology",
+  "description": "Updated description"
+}
+
+# Response: Same format as GET /users/me
+```
+
+**Notes:**
+- ✅ **Single endpoint** for all user roles (admin, sponsor, user)
+- ✅ **RLS Security**: Users can only access their own data
+- ✅ **Smart Response**: Returns appropriate format based on user role
+- ⚠️ **Deprecated**: Old role-specific endpoints (`/user/profile`, `/sponsor/profile`, `/admin/profile/`) still work but are deprecated
+
+---
+
 ## 👑 **Admin Endpoints (JWT Required)**
 
 ### **Create Contest (100% Form Support)**
