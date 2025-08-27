@@ -337,6 +337,37 @@ Authorization: Bearer <admin-token>
 }
 ```
 
+### **Get Single Contest (Admin Edit)**
+```bash
+GET /admin/contests/1
+Authorization: Bearer <admin-token>
+
+# Response - Full contest details for editing
+{
+  "id": 1,
+  "name": "Summer Sweepstakes",
+  "description": "Win amazing prizes this summer!",
+  "location": "San Francisco, CA",
+  "latitude": 37.7749,
+  "longitude": -122.4194,
+  "start_time": "2024-07-01T10:00:00Z",
+  "end_time": "2024-07-31T23:59:59Z",
+  "prize_description": "$500 Gift Card",
+  "active": true,
+  "created_at": "2024-06-15T09:30:00Z",
+  "entry_count": 25,
+  "status": "active",  # computed: upcoming/active/ended
+  "winner_entry_id": null,
+  "winner_phone": null,
+  "winner_selected_at": null,
+  "created_timezone": "UTC",
+  "admin_user_id": "1",
+  "image_url": "https://example.com/contest-image.jpg",
+  "sponsor_url": "https://sponsor.com",
+  "official_rules": null
+}
+```
+
 ### **Update Contest**
 ```bash
 PUT /admin/contests/1
@@ -505,6 +536,124 @@ Authorization: Bearer <admin-token>
   "total": 1,
   "page": 1,
   "size": 20
+}
+```
+
+---
+
+## 🏢 **Sponsor Contest Management**
+
+### **List Sponsor's Contests**
+```bash
+GET /sponsor/contests
+Authorization: Bearer <sponsor-token>
+
+# Response - Only contests created by this sponsor
+[
+  {
+    "id": 5,
+    "name": "Company Anniversary Giveaway",
+    "description": "Celebrating 10 years in business!",
+    "start_time": "2024-08-01T10:00:00Z",
+    "end_time": "2024-08-15T23:59:59Z",
+    "prize_description": "$1000 Shopping Spree",
+    "active": true,
+    "entry_count": 42,
+    "official_rules": { /* rules data */ }
+  }
+]
+```
+
+### **Get Single Contest (Sponsor Edit)**
+```bash
+GET /sponsor/contests/5
+Authorization: Bearer <sponsor-token>
+
+# Response - Only if contest is owned by sponsor
+{
+  "id": 5,
+  "name": "Company Anniversary Giveaway",
+  "description": "Celebrating 10 years in business!",
+  "location": "New York, NY",
+  "start_time": "2024-08-01T10:00:00Z",
+  "end_time": "2024-08-15T23:59:59Z",
+  "prize_description": "$1000 Shopping Spree",
+  "active": true,
+  "entry_count": 42,
+  "official_rules": { /* complete rules data */ }
+}
+```
+
+### **Create Contest (Sponsor)**
+```bash
+POST /sponsor/contests
+Authorization: Bearer <sponsor-token>
+Content-Type: application/json
+
+{
+  "name": "New Sponsor Contest",
+  "description": "Amazing prizes await!",
+  "start_time": "2024-09-01T10:00:00Z",
+  "end_time": "2024-09-15T23:59:59Z",
+  "prize_description": "$500 Gift Card",
+  "location": "United States",
+  "official_rules": {
+    "sponsor_name": "My Company",
+    "prize_value_usd": 500.00,
+    "eligibility_text": "Open to US residents 18+",
+    "terms_url": "https://mycompany.com/terms"
+  }
+}
+
+# Response - Contest created (pending admin approval)
+{
+  "id": 6,
+  "name": "New Sponsor Contest",
+  "is_approved": false,  # Requires admin approval
+  "message": "Contest created successfully, awaiting admin approval"
+}
+```
+
+### **Update Contest (Sponsor)**
+```bash
+PUT /sponsor/contests/6
+Authorization: Bearer <sponsor-token>
+Content-Type: application/json
+
+{
+  "name": "Updated Contest Name",
+  "description": "Updated description",
+  "prize_description": "$750 Gift Card"
+}
+
+# Note: Only unapproved contests can be edited by sponsors
+# Approved contests require admin assistance
+```
+
+### **Delete Contest (Sponsor)**
+```bash
+DELETE /sponsor/contests/6
+Authorization: Bearer <sponsor-token>
+
+# Response - Only if contest is unapproved and has no entries
+{
+  "message": "Contest deleted successfully"
+}
+```
+
+### **Sponsor Contest Analytics**
+```bash
+GET /sponsor/analytics
+Authorization: Bearer <sponsor-token>
+
+# Response
+{
+  "total_contests": 3,
+  "approved_contests": 2,
+  "pending_contests": 1,
+  "active_contests": 1,
+  "total_entries": 127,
+  "approval_rate": 66.7
 }
 ```
 
