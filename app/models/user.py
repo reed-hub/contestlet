@@ -11,6 +11,12 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     phone = Column(String, unique=True, index=True, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+    
+    # Personal Profile Fields
+    full_name = Column(String(255), nullable=True)
+    email = Column(String(255), nullable=True, index=True)
+    bio = Column(String(1000), nullable=True)  # Personal bio/description
     
     # Role System Fields
     role = Column(String(20), nullable=False, default='user', index=True)

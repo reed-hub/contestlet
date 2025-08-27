@@ -21,7 +21,8 @@ from app.models import User
 from app.schemas.role_system import (
     UserWithRole, 
     UnifiedSponsorProfileResponse,
-    SponsorProfileUpdate
+    SponsorProfileUpdate,
+    UnifiedProfileUpdate
 )
 from app.schemas.auth import UserMeResponse
 from app.core.datetime_utils import utc_now
@@ -92,7 +93,11 @@ async def get_my_profile(
             role=user_with_profile.role,
             is_verified=user_with_profile.is_verified,
             created_at=user_with_profile.created_at,
+            updated_at=user_with_profile.updated_at,
             role_assigned_at=user_with_profile.role_assigned_at,
+            full_name=user_with_profile.full_name,
+            email=user_with_profile.email,
+            bio=user_with_profile.bio,
             company_profile=user_with_profile.sponsor_profile
         )
     else:
@@ -103,23 +108,28 @@ async def get_my_profile(
             role=user_with_profile.role,
             is_verified=user_with_profile.is_verified,
             created_at=user_with_profile.created_at,
+            updated_at=user_with_profile.updated_at,
             role_assigned_at=user_with_profile.role_assigned_at,
-            created_by_user_id=user_with_profile.created_by_user_id
+            created_by_user_id=user_with_profile.created_by_user_id,
+            role_assigned_by=user_with_profile.role_assigned_by,
+            full_name=user_with_profile.full_name,
+            email=user_with_profile.email,
+            bio=user_with_profile.bio
         )
 
 
 @router.put("/me", response_model=Union[UserWithRole, UnifiedSponsorProfileResponse])
 async def update_my_profile(
-    profile_update: SponsorProfileUpdate,
+    profile_update: UnifiedProfileUpdate,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ):
     """
     Update current user's profile information.
     
-    Handles all user roles in a single endpoint:
-    - Admin/User: Limited profile updates (future expansion)
-    - Sponsor: Full company profile updates
+    Handles all user roles with comprehensive profile updates:
+    - Admin/User/Sponsor: Personal profile (full_name, email, bio)
+    - Sponsor: Additional company profile updates
     
     Security: RLS ensures users can only update their own data.
     """
@@ -138,8 +148,24 @@ async def update_my_profile(
             detail="User not found"
         )
     
-    if user_with_profile.role == "sponsor":
-        # Handle sponsor profile updates
+    update_data = profile_update.dict(exclude_unset=True)
+    
+    # Separate personal profile fields from company profile fields
+    personal_fields = {'full_name', 'email', 'bio'}
+    company_fields = {'company_name', 'website_url', 'logo_url', 'contact_name', 
+                     'contact_email', 'contact_phone', 'industry', 'description'}
+    
+    # Update personal profile fields (available to all users)
+    personal_updates = {k: v for k, v in update_data.items() if k in personal_fields}
+    if personal_updates:
+        for field, value in personal_updates.items():
+            if hasattr(user_with_profile, field):
+                setattr(user_with_profile, field, value)
+        user_with_profile.updated_at = utc_now()
+    
+    # Handle company profile updates (only for sponsors)
+    company_updates = {k: v for k, v in update_data.items() if k in company_fields}
+    if company_updates and user_with_profile.role == "sponsor":
         if not user_with_profile.sponsor_profile:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -147,43 +173,51 @@ async def update_my_profile(
             )
         
         # Update sponsor profile fields
-        update_data = profile_update.dict(exclude_unset=True)
-        for field, value in update_data.items():
+        for field, value in company_updates.items():
             if hasattr(user_with_profile.sponsor_profile, field):
                 setattr(user_with_profile.sponsor_profile, field, value)
         
         user_with_profile.sponsor_profile.updated_at = utc_now()
-        
-        db.commit()
+    
+    elif company_updates and user_with_profile.role != "sponsor":
+        # Ignore company fields for non-sponsor users (no error, just skip)
+        pass
+    
+    # Commit all changes
+    db.commit()
+    db.refresh(user_with_profile)
+    if user_with_profile.sponsor_profile:
         db.refresh(user_with_profile.sponsor_profile)
-        db.refresh(user_with_profile)  # Refresh the user object too
-        
-        # Return unified sponsor profile response
+    
+    # Return appropriate response based on role
+    if user_with_profile.role == "sponsor" and user_with_profile.sponsor_profile:
         return UnifiedSponsorProfileResponse(
             user_id=user_with_profile.id,
             phone=user_with_profile.phone,
             role=user_with_profile.role,
             is_verified=user_with_profile.is_verified,
             created_at=user_with_profile.created_at,
+            updated_at=user_with_profile.updated_at,
             role_assigned_at=user_with_profile.role_assigned_at,
+            full_name=user_with_profile.full_name,
+            email=user_with_profile.email,
+            bio=user_with_profile.bio,
             company_profile=user_with_profile.sponsor_profile
         )
-    
     else:
-        # Handle admin/user profile updates
-        # Currently limited - future expansion for name, email, preferences, etc.
-        
-        # For now, just return current user info
-        # Future: Allow updating name, email, preferences, etc.
-        
         return UserWithRole(
             id=user_with_profile.id,
             phone=user_with_profile.phone,
             role=user_with_profile.role,
             is_verified=user_with_profile.is_verified,
             created_at=user_with_profile.created_at,
+            updated_at=user_with_profile.updated_at,
             role_assigned_at=user_with_profile.role_assigned_at,
-            created_by_user_id=user_with_profile.created_by_user_id
+            created_by_user_id=user_with_profile.created_by_user_id,
+            role_assigned_by=user_with_profile.role_assigned_by,
+            full_name=user_with_profile.full_name,
+            email=user_with_profile.email,
+            bio=user_with_profile.bio
         )
 
 

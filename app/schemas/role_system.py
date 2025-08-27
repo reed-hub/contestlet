@@ -40,15 +40,21 @@ class UserRoleUpdate(BaseModel):
 
 
 class UserWithRole(BaseModel):
-    """Enhanced user schema with role information"""
+    """Enhanced user schema with role information and personal profile"""
     id: int
     phone: str
     role: UserRole
     is_verified: bool
     created_at: datetime
+    updated_at: Optional[datetime] = None
     role_assigned_at: datetime
     created_by_user_id: Optional[int] = None
     role_assigned_by: Optional[int] = None
+    
+    # Personal Profile Fields
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    bio: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -119,6 +125,42 @@ class SponsorProfileUpdate(BaseModel):
         return v
 
 
+class UnifiedProfileUpdate(BaseModel):
+    """Unified schema for updating user profiles (personal + company fields)"""
+    # Personal Profile Fields (available to all users)
+    full_name: Optional[str] = Field(None, min_length=1, max_length=255, description="Full name")
+    email: Optional[str] = Field(None, max_length=255, description="Email address")
+    bio: Optional[str] = Field(None, max_length=1000, description="Personal bio/description")
+    
+    # Company Profile Fields (only for sponsors)
+    company_name: Optional[str] = Field(None, min_length=2, max_length=255, description="Company name")
+    website_url: Optional[str] = Field(None, max_length=500, description="Company website")
+    logo_url: Optional[str] = Field(None, max_length=500, description="Company logo URL")
+    contact_name: Optional[str] = Field(None, max_length=255, description="Contact person name")
+    contact_email: Optional[str] = Field(None, max_length=255, description="Contact email")
+    contact_phone: Optional[str] = Field(None, max_length=50, description="Contact phone")
+    industry: Optional[str] = Field(None, max_length=100, description="Industry sector")
+    description: Optional[str] = Field(None, description="Company description")
+
+    @validator('email', 'contact_email')
+    def validate_emails(cls, v):
+        if v and not re.match(r"[^@]+@[^@]+\.[^@]+", v):
+            raise ValueError('Invalid email format')
+        return v
+    
+    @validator('website_url', 'logo_url')
+    def validate_urls(cls, v):
+        if v and not (v.startswith('http://') or v.startswith('https://')):
+            raise ValueError('URL must start with http:// or https://')
+        return v
+    
+    @validator('full_name', 'contact_name')
+    def validate_names(cls, v):
+        if v and len(v.strip()) < 1:
+            raise ValueError('Name cannot be empty')
+        return v.strip() if v else v
+
+
 class SponsorProfileResponse(BaseModel):
     """Schema for sponsor profile responses"""
     id: int
@@ -148,7 +190,13 @@ class UnifiedSponsorProfileResponse(BaseModel):
     role: UserRole
     is_verified: bool
     created_at: datetime
+    updated_at: Optional[datetime] = None
     role_assigned_at: datetime
+    
+    # Personal Profile Fields
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    bio: Optional[str] = None
     
     # Company profile information
     company_profile: Optional[SponsorProfileResponse] = None
