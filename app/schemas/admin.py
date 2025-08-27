@@ -92,8 +92,19 @@ class AdminContestUpdate(BaseModel):
     contest_tags: Optional[List[str]] = Field(None, description="Contest tags")
     promotion_channels: Optional[List[str]] = Field(None, description="Promotion channels")
     
+    # Admin Override Fields
+    admin_override: Optional[bool] = Field(False, description="Admin override for active contest modifications")
+    override_reason: Optional[str] = Field(None, description="Reason for admin override (required when admin_override=True)")
+    
 # Note: Active status is now computed automatically based on start/end times and winner selection
     official_rules: Optional[OfficialRulesUpdate] = Field(None, description="Official rules updates")
+
+    @validator('override_reason')
+    def validate_override_reason(cls, v, values):
+        admin_override = values.get('admin_override', False)
+        if admin_override and not v:
+            raise ValueError('Override reason is required when admin_override is True')
+        return v
 
     @validator('latitude')
     def validate_latitude(cls, v):

@@ -121,18 +121,42 @@ class ContestService:
         
         return contest
     
-    def update_contest(self, contest_id: int, contest_data: AdminContestUpdate) -> Contest:
-        """Update existing contest"""
+    def update_contest(self, contest_id: int, contest_data: AdminContestUpdate, admin_user_id: Optional[int] = None) -> Contest:
+        """Update existing contest with admin override support"""
         contest = self.get_contest_by_id(contest_id)
         if not contest:
             raise_resource_not_found("Contest", contest_id)
         
-        # Validate update data
-        self._validate_contest_update(contest, contest_data)
+        # Extract admin override fields
+        admin_override = contest_data.admin_override or False
+        override_reason = contest_data.override_reason
         
-        # Update contest fields
-        for field, value in contest_data.dict(exclude_unset=True).items():
-            setattr(contest, field, value)
+        # Validate update data (with override support)
+        self._validate_contest_update(contest, contest_data, admin_override, override_reason)
+        
+        # Log admin override if used
+        if admin_override and contest.entries and contest.active:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"Admin override: User {admin_user_id} modifying active contest {contest_id} "
+                f"with {len(contest.entries)} entries. Reason: {override_reason}"
+            )
+            
+            # Create audit log entry
+            self._create_admin_override_audit(
+                admin_user_id=admin_user_id,
+                contest_id=contest_id,
+                override_reason=override_reason,
+                entry_count=len(contest.entries),
+                modified_fields=list(contest_data.dict(exclude_unset=True, exclude={'admin_override', 'override_reason'}).keys())
+            )
+        
+        # Update contest fields (exclude admin override fields from model update)
+        update_fields = contest_data.dict(exclude_unset=True, exclude={'admin_override', 'override_reason'})
+        for field, value in update_fields.items():
+            if hasattr(contest, field):
+                setattr(contest, field, value)
         
         contest.updated_at = utc_now()
         self.db.commit()
@@ -254,18 +278,22 @@ class ContestService:
         if contest_data.total_entry_limit and contest_data.total_entry_limit <= 0:
             raise_validation_error("Total entry limit must be positive", "total_entry_limit")
     
-    def _validate_contest_update(self, contest: Contest, update_data: AdminContestUpdate):
-        """Validate contest update data"""
+    def _validate_contest_update(self, contest: Contest, update_data: AdminContestUpdate, admin_override: bool = False, override_reason: Optional[str] = None):
+        """Validate contest update data with admin override support"""
         # Check if contest can be modified
         if contest.entries and contest.active:
-            raise_business_logic_error(
-                ErrorCode.RESOURCE_IN_USE,
-                "Cannot modify active contest with entries"
-            )
+            if not admin_override:
+                raise_business_logic_error(
+                    ErrorCode.RESOURCE_IN_USE,
+                    "Cannot modify active contest with entries"
+                )
+            elif not override_reason:
+                raise_validation_error("Override reason is required for admin override", "override_reason")
         
-        # Validate date changes
+        # Validate date changes (still apply even with override for data integrity)
         if update_data.start_time and update_data.start_time <= utc_now():
-            raise_validation_error("Start time must be in the future", "start_time")
+            if not admin_override:
+                raise_validation_error("Start time must be in the future", "start_time")
         
         if update_data.end_time and update_data.start_time and update_data.start_time >= update_data.end_time:
             raise_validation_error("Start time must be before end time", "start_time")
@@ -297,3 +325,31 @@ class ContestService:
             "start_time": contest.start_time,
             "end_time": contest.end_time
         }
+    
+    def _create_admin_override_audit(self, admin_user_id: int, contest_id: int, override_reason: str, entry_count: int, modified_fields: List[str]):
+        """Create audit log entry for admin override actions"""
+        try:
+            from app.models.role_audit import RoleAudit
+            
+            # Use a special role value for admin override actions
+            audit_entry = RoleAudit(
+                user_id=admin_user_id,
+                old_role="admin",  # Current role
+                new_role="admin",  # Same role (this is not a role change)
+                reason=(
+                    f"ADMIN_OVERRIDE: Contest {contest_id} modified with {entry_count} entries. "
+                    f"Reason: {override_reason}. "
+                    f"Modified fields: {', '.join(modified_fields)}"
+                ),
+                created_at=utc_now()
+            )
+            
+            self.db.add(audit_entry)
+            # Note: Commit is handled by the calling method
+            
+        except Exception as e:
+            # Log the error but don't fail the contest update
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to create admin override audit log: {e}")
+            # Continue with contest update even if audit logging fails

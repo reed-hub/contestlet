@@ -27,7 +27,7 @@ async def create_contest(
 ):
     """Create a new contest with admin validation"""
     contest_service = ContestService(db)
-    contest = contest_service.create_contest(contest_data, admin_user["sub"])
+    contest = contest_service.create_contest(contest_data, int(admin_user["user_id"]) if admin_user["user_id"] != "legacy_admin" else 1)
     return AdminContestResponse.from_orm(contest)
 
 
@@ -38,10 +38,47 @@ async def update_contest(
     admin_user: dict = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
-    """Update existing contest"""
+    """Update existing contest with admin override support"""
     contest_service = ContestService(db)
-    contest = contest_service.update_contest(contest_id, contest_data)
-    return AdminContestResponse.from_orm(contest)
+    contest = contest_service.update_contest(contest_id, contest_data, admin_user_id=int(admin_user["user_id"]) if admin_user["user_id"] != "legacy_admin" else 1)
+    
+    # Check if admin override was used for response message
+    override_used = contest_data.admin_override and contest_data.override_reason
+    
+    # Create response with computed fields
+    now = datetime.utcnow()
+    if contest.start_time > now:
+        status = "upcoming"
+    elif contest.end_time <= now:
+        status = "ended"
+    else:
+        status = "active"
+    
+    contest_data_dict = {
+        'id': contest.id,
+        'name': contest.name,
+        'description': contest.description,
+        'location': contest.location,
+        'latitude': contest.latitude,
+        'longitude': contest.longitude,
+        'start_time': contest.start_time,
+        'end_time': contest.end_time,
+        'prize_description': contest.prize_description,
+        'active': contest.active,
+        'created_at': contest.created_at,
+        'entry_count': len(contest.entries) if contest.entries else 0,
+        'status': status,
+        'winner_entry_id': contest.winner_entry_id,
+        'winner_phone': contest.winner_phone,
+        'winner_selected_at': contest.winner_selected_at,
+        'created_timezone': contest.created_timezone,
+        'admin_user_id': contest.admin_user_id,
+        'image_url': contest.image_url,
+        'sponsor_url': contest.sponsor_url,
+        'official_rules': None
+    }
+    
+    return AdminContestResponse(**contest_data_dict)
 
 
 @router.get("/{contest_id}", response_model=AdminContestResponse)
