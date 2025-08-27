@@ -207,10 +207,38 @@ async def get_contest_details(
             detail="Contest not found"
         )
     
-    # Return contest details for public viewing
+    # Compute status based on current time
+    now = datetime.utcnow()
+    if contest.start_time > now:
+        status = "upcoming"
+    elif contest.end_time <= now:
+        status = "ended"
+    else:
+        status = "active"
+    
+    # Return contest details for public viewing with computed fields
     # Note: This endpoint is public and doesn't require authentication
     # It returns contest information suitable for public display
-    return contest
+    contest_dict = {
+        'id': contest.id,
+        'name': contest.name,
+        'description': contest.description,
+        'location': contest.location,
+        'latitude': contest.latitude,
+        'longitude': contest.longitude,
+        'start_time': contest.start_time,
+        'end_time': contest.end_time,
+        'prize_description': contest.prize_description,
+        'active': contest.active,
+        'created_at': contest.created_at,
+        'status': status,
+        'entry_count': len(contest.entries) if contest.entries else 0,
+        'is_winner_selected': contest.winner_entry_id is not None,
+        'prize_value': None,  # Not in model for public endpoint
+        'distance_miles': None  # Not applicable for this endpoint
+    }
+    
+    return ContestResponse(**contest_dict)
 
 
 @router.post("/{contest_id}/enter", response_model=EntryResponse)
