@@ -11,10 +11,12 @@ Uses RLS for security - users can only access their own data.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from typing import Union
 from app.database.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.auth import jwt_manager
 from app.models import User
 from app.schemas.role_system import (
     UserWithRole, 
@@ -25,11 +27,37 @@ from app.schemas.auth import UserMeResponse
 from app.core.datetime_utils import utc_now
 
 router = APIRouter(prefix="/users", tags=["users"])
+security = HTTPBearer()
+
+
+def get_user_id_from_jwt(credentials: HTTPAuthorizationCredentials) -> int:
+    """Extract user ID from JWT token without database access"""
+    try:
+        payload = jwt_manager.verify_token(credentials.credentials, "access")
+        if not payload:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token"
+            )
+        
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing user ID in token"
+            )
+        
+        return int(user_id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token format"
+        )
 
 
 @router.get("/me", response_model=Union[UserWithRole, UnifiedSponsorProfileResponse])
 async def get_my_profile(
-    current_user: User = Depends(get_current_user),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ):
     """
@@ -41,11 +69,14 @@ async def get_my_profile(
     
     Security: RLS ensures users can only access their own data.
     """
-    # Reload user with sponsor_profile relationship to avoid session issues
+    # Extract user ID from JWT token to avoid session issues
+    user_id = get_user_id_from_jwt(credentials)
+    
+    # Load user with sponsor_profile relationship
     from sqlalchemy.orm import joinedload
     user_with_profile = db.query(User).options(
         joinedload(User.sponsor_profile)
-    ).filter(User.id == current_user.id).first()
+    ).filter(User.id == user_id).first()
     
     if not user_with_profile:
         raise HTTPException(
@@ -80,7 +111,7 @@ async def get_my_profile(
 @router.put("/me", response_model=Union[UserWithRole, UnifiedSponsorProfileResponse])
 async def update_my_profile(
     profile_update: SponsorProfileUpdate,
-    current_user: User = Depends(get_current_user),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ):
     """
@@ -92,11 +123,14 @@ async def update_my_profile(
     
     Security: RLS ensures users can only update their own data.
     """
-    # Reload user with sponsor_profile relationship to avoid session issues
+    # Extract user ID from JWT token to avoid session issues
+    user_id = get_user_id_from_jwt(credentials)
+    
+    # Load user with sponsor_profile relationship
     from sqlalchemy.orm import joinedload
     user_with_profile = db.query(User).options(
         joinedload(User.sponsor_profile)
-    ).filter(User.id == current_user.id).first()
+    ).filter(User.id == user_id).first()
     
     if not user_with_profile:
         raise HTTPException(
