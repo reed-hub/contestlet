@@ -95,13 +95,46 @@ def require_roles(allowed_roles: List[str]) -> Callable:
             pass
     """
     
-    def role_checker(user: User = Depends(get_current_user)) -> User:
-        if user.role not in allowed_roles:
-            raise_authorization_error(
-                f"Access denied. Required roles: {allowed_roles}. Your role: {user.role}",
-                {"required_roles": allowed_roles, "user_role": user.role}
-            )
-        return user
+    def role_checker(
+        credentials: HTTPAuthorizationCredentials = Depends(security),
+        db: Session = Depends(get_db)
+    ) -> User:
+        # Extract role directly from JWT to avoid session issues
+        try:
+            payload = jwt_manager.verify_token(credentials.credentials, "access")
+            if not payload:
+                raise_authentication_error("Invalid or expired token")
+            
+            user_role = payload.get("role")
+            user_id = payload.get("sub")
+            
+            if not user_role or not user_id:
+                raise_authentication_error("Missing role or user ID in token")
+            
+            # Check role authorization using JWT data
+            if user_role not in allowed_roles:
+                raise_authorization_error(
+                    f"Access denied. Required roles: {allowed_roles}. Your role: {user_role}",
+                    {"required_roles": allowed_roles, "user_role": user_role}
+                )
+            
+            # Get fresh user from database for this request
+            try:
+                user_id = int(user_id)
+            except ValueError:
+                raise_authentication_error("Invalid user ID format in token")
+            
+            user = db.query(User).filter(User.id == user_id).first()
+            if not user:
+                raise_authentication_error("User not found")
+            
+            return user
+            
+        except Exception as e:
+            if isinstance(e, HTTPException):
+                raise
+            raise_authentication_error(f"Authentication failed: {str(e)}")
+    
     
     return role_checker
 
