@@ -30,14 +30,8 @@ class MediaService:
             self.enabled = False
             logger.warning("Cloudinary not configured - media uploads will be disabled")
         
-        # Environment-specific folder structure
-        env_folder = {
-            "development": "dev",
-            "staging": "staging", 
-            "production": "prod"
-        }.get(self.settings.environment, "dev")
-        
-        self.base_folder = f"{self.settings.cloudinary_folder}/{env_folder}"
+        # Use the cloudinary_folder directly as it already includes environment
+        self.base_folder = self.settings.cloudinary_folder
     
     def _check_enabled(self):
         """Ensure Cloudinary is properly configured"""

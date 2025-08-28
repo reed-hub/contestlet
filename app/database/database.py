@@ -89,19 +89,18 @@ class DatabaseManager:
         def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
             """Log slow queries in debug mode"""
             if self.settings.debug:
-                conn.info.setdefault('query_start_time', []).append(
-                    conn.info.get('query_start_time', [None])[-1] or time.time()
-                )
+                query_times = conn.info.setdefault('query_start_time', [])
+                query_times.append(time.time())
         
         @event.listens_for(engine, "after_cursor_execute")
         def after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
             """Log query execution time in debug mode"""
-            start_time = conn.info.get('query_start_time', [None])[-1]
+            query_times = conn.info.get('query_start_time', [])
+            start_time = query_times.pop() if query_times else None
             if start_time:
                 execution_time = time.time() - start_time
                 if execution_time > 1.0:  # Log slow queries (>1s)
                     print(f"🐌 Slow query ({execution_time:.2f}s): {statement[:100]}...")
-                conn.info.get('query_start_time', []).pop()
     
     def create_tables(self):
         """Create all database tables"""

@@ -763,9 +763,9 @@ GET /media/health
 - **Aspect Ratio**: 1:1 (1080x1080) for consistency
 
 ### **Environment Organization**
-- **Development**: `contestlet/dev/contests/{id}/hero`
-- **Staging**: `contestlet/staging/contests/{id}/hero`
-- **Production**: `contestlet/prod/contests/{id}/hero`
+- **Development**: `contestlet-develop/contests/{id}/hero`
+- **Staging**: `contestlet-staging/contests/{id}/hero`
+- **Production**: `contestlet-production/contests/{id}/hero`
 
 ---
 
