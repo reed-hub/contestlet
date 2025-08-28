@@ -10,6 +10,7 @@ from .location import router as location_router
 from .sponsor import router as sponsor_router
 from .user import router as user_router
 from .users import router as users_router
+from .media import router as media_router
 
 __all__ = [
     "auth_router", 
@@ -23,5 +24,6 @@ __all__ = [
     "location_router",
     "sponsor_router",
     "user_router",
-    "users_router"
+    "users_router",
+    "media_router"
 ]

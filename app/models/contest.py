@@ -58,7 +58,10 @@ class Contest(Base):
     promotion_channels = Column(JSON, nullable=True)          # Array of promotion channels
     
     # Visual branding and sponsor information
-    image_url = Column(String, nullable=True)                 # CDN URL to contest hero image (1:1 aspect ratio)
+    image_url = Column(String, nullable=True)                 # Full Cloudinary URL for hero media
+    image_public_id = Column(String, nullable=True)           # Cloudinary public ID for transformations
+    media_type = Column(String(10), default="image", nullable=False)  # "image" or "video"
+    media_metadata = Column(JSON, nullable=True)              # Size, format, upload info, etc.
     sponsor_url = Column(String, nullable=True)               # Sponsor's website URL
     
     # Role System Fields

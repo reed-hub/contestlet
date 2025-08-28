@@ -33,3 +33,6 @@ httpx==0.25.2
 
 # Geospatial calculations
 geopy==2.4.0
+
+# Media Management
+cloudinary==1.44.0

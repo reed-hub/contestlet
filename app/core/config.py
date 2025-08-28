@@ -50,6 +50,12 @@ class Settings(BaseSettings):
         description="Legacy admin token for backward compatibility"
     )
     
+    # Cloudinary Configuration
+    cloudinary_cloud_name: str = Field(default="", description="Cloudinary cloud name")
+    cloudinary_api_key: str = Field(default="", description="Cloudinary API key")
+    cloudinary_api_secret: str = Field(default="", description="Cloudinary API secret")
+    cloudinary_folder: str = Field(default="contestlet", description="Base folder for media uploads")
+    
     # CORS
     allow_origins: List[str] = Field(
         default_factory=lambda: ["http://localhost:3000", "http://localhost:8000"],
@@ -112,6 +118,27 @@ class Settings(BaseSettings):
     def is_twilio_configured(self) -> bool:
         """Check if Twilio is properly configured"""
         return all([self.twilio_account_sid, self.twilio_auth_token, self.twilio_verify_service_sid])
+    
+    @computed_field
+    @property
+    def is_cloudinary_configured(self) -> bool:
+        """Check if Cloudinary is properly configured"""
+        return bool(
+            self.cloudinary_cloud_name and
+            self.cloudinary_api_key and
+            self.cloudinary_api_secret
+        )
+    
+    @computed_field
+    @property
+    def cloudinary_config(self) -> dict:
+        """Get Cloudinary configuration dictionary"""
+        return {
+            "cloud_name": self.cloudinary_cloud_name,
+            "api_key": self.cloudinary_api_key,
+            "api_secret": self.cloudinary_api_secret,
+            "secure": True
+        }
     
     @computed_field
     @property

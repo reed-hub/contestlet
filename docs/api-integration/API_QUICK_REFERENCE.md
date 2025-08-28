@@ -659,6 +659,116 @@ Authorization: Bearer <sponsor-token>
 
 ---
 
+## 🎨 **Media Management**
+
+### **Upload Contest Hero Media**
+```bash
+POST /media/contests/{contest_id}/hero?media_type=image
+Authorization: Bearer <admin-or-sponsor-token>
+Content-Type: multipart/form-data
+
+# Form data:
+file: [image/video file]
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Hero image uploaded successfully",
+  "contest_id": 4,
+  "media_type": "image",
+  "url": "https://res.cloudinary.com/contestlet/image/upload/v1234567890/contestlet/prod/contests/4/hero.webp",
+  "public_id": "contestlet/prod/contests/4/hero",
+  "optimized_urls": {
+    "thumbnail": "https://res.cloudinary.com/contestlet/image/upload/w_150,h_150,c_fill/contestlet/prod/contests/4/hero.webp",
+    "medium": "https://res.cloudinary.com/contestlet/image/upload/w_400,h_400,c_fill/contestlet/prod/contests/4/hero.webp",
+    "large": "https://res.cloudinary.com/contestlet/image/upload/w_800,h_800,c_fill/contestlet/prod/contests/4/hero.webp"
+  },
+  "metadata": {
+    "format": "webp",
+    "dimensions": "1080x1080",
+    "size_bytes": 245760
+  }
+}
+```
+
+### **Delete Contest Hero Media**
+```bash
+DELETE /media/contests/{contest_id}/hero
+Authorization: Bearer <admin-or-sponsor-token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Hero media deleted successfully",
+  "contest_id": 4
+}
+```
+
+### **Get Optimized Media URLs**
+```bash
+GET /media/contests/{contest_id}/hero/urls
+# Public endpoint - no authentication required
+```
+
+**Response:**
+```json
+{
+  "contest_id": 4,
+  "has_media": true,
+  "media_type": "image",
+  "urls": {
+    "original": "https://res.cloudinary.com/contestlet/image/upload/contestlet/prod/contests/4/hero.webp",
+    "thumbnail": "https://res.cloudinary.com/contestlet/image/upload/w_150,h_150,c_fill/contestlet/prod/contests/4/hero.webp",
+    "small": "https://res.cloudinary.com/contestlet/image/upload/w_200,h_200,c_fill/contestlet/prod/contests/4/hero.webp",
+    "medium": "https://res.cloudinary.com/contestlet/image/upload/w_400,h_400,c_fill/contestlet/prod/contests/4/hero.webp",
+    "large": "https://res.cloudinary.com/contestlet/image/upload/w_800,h_800,c_fill/contestlet/prod/contests/4/hero.webp",
+    "extra_large": "https://res.cloudinary.com/contestlet/image/upload/w_1200,h_1200,c_fill/contestlet/prod/contests/4/hero.webp"
+  },
+  "metadata": {
+    "format": "webp",
+    "width": 1080,
+    "height": 1080,
+    "bytes": 245760,
+    "uploaded_at": "2025-08-27T10:30:00Z",
+    "uploaded_by": 1
+  }
+}
+```
+
+### **Media Service Health**
+```bash
+GET /media/health
+# Public endpoint - service status
+```
+
+**Response:**
+```json
+{
+  "service": "media",
+  "status": "healthy",
+  "cloudinary_configured": true,
+  "environment": "production",
+  "base_folder": "contestlet/prod"
+}
+```
+
+### **Supported File Types**
+- **Images**: JPEG, PNG, WebP, GIF (max 50MB)
+- **Videos**: MP4, MOV, AVI (max 50MB)
+- **Optimization**: Automatic compression, format conversion (WebP, AVIF)
+- **Aspect Ratio**: 1:1 (1080x1080) for consistency
+
+### **Environment Organization**
+- **Development**: `contestlet/dev/contests/{id}/hero`
+- **Staging**: `contestlet/staging/contests/{id}/hero`
+- **Production**: `contestlet/prod/contests/{id}/hero`
+
+---
+
 ## 📱 **SMS Template Variables**
 
 ### **Available Variables**
