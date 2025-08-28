@@ -6,10 +6,11 @@ Supports both admin and sponsor uploads with proper authentication.
 """
 
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status, Query
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 from typing import Optional, Dict, Any
 from app.database.database import get_db
-from app.core.dependencies import get_admin_user, get_sponsor_user
+from app.core.dependencies import get_admin_user, get_sponsor_user, get_current_user
 from app.models.user import User
 from app.models.contest import Contest
 from app.services.media_service import MediaService, get_media_service
@@ -19,6 +20,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/media", tags=["media"])
+security = HTTPBearer()
 
 
 @router.post("/contests/{contest_id}/hero")
@@ -26,7 +28,7 @@ async def upload_contest_hero(
     contest_id: int,
     file: UploadFile = File(..., description="Hero image or video file"),
     media_type: str = Query("image", description="Media type: 'image' or 'video'"),
-    user: User = Depends(get_admin_user),  # Admin or sponsor can upload
+    credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
     media_service: MediaService = Depends(get_media_service)
 ):
@@ -39,6 +41,32 @@ async def upload_contest_hero(
     - **Storage**: Environment-specific Cloudinary folders
     - **Access**: Admin and sponsor users only
     """
+    
+    # Extract and validate JWT token
+    from app.core.auth import jwt_manager
+    
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+    
+    payload = jwt_manager.verify_token(credentials.credentials, "access")
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token"
+        )
+    
+    user_role = payload.get("role")
+    user_id = int(payload.get("sub"))
+    
+    # Validate user role
+    if user_role not in ["admin", "sponsor"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admin and sponsor users can upload contest media"
+        )
     
     # Validate media type
     if media_type not in ["image", "video"]:
@@ -74,7 +102,7 @@ async def upload_contest_hero(
         )
     
     # For sponsors, ensure they own the contest
-    if user.role == "sponsor" and contest.created_by_user_id != user.id:
+    if user_role == "sponsor" and contest.created_by_user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only upload media for your own contests"
@@ -101,13 +129,13 @@ async def upload_contest_hero(
         "bytes": upload_result.get("bytes"),
         "resource_type": upload_result.get("resource_type"),
         "uploaded_at": upload_result.get("created_at"),
-        "uploaded_by": user.id
+        "uploaded_by": user_id
     }
     
     db.commit()
     db.refresh(contest)
     
-    logger.info(f"Successfully uploaded {media_type} for contest {contest_id} by user {user.id}")
+    logger.info(f"Successfully uploaded {media_type} for contest {contest_id} by user {user_id}")
     
     # Generate optimized URLs for different use cases
     optimized_urls = {}
@@ -137,7 +165,7 @@ async def upload_contest_hero(
 @router.delete("/contests/{contest_id}/hero")
 async def delete_contest_hero(
     contest_id: int,
-    user: User = Depends(get_admin_user),  # Admin or sponsor can delete
+    credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
     media_service: MediaService = Depends(get_media_service)
 ):
@@ -149,6 +177,32 @@ async def delete_contest_hero(
     - **Access**: Admin and sponsor users only
     """
     
+    # Extract and validate JWT token
+    from app.core.auth import jwt_manager
+    
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+    
+    payload = jwt_manager.verify_token(credentials.credentials, "access")
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token"
+        )
+    
+    user_role = payload.get("role")
+    user_id = int(payload.get("sub"))
+    
+    # Validate user role
+    if user_role not in ["admin", "sponsor"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admin and sponsor users can delete contest media"
+        )
+    
     # Check if contest exists and user has permission
     contest = db.query(Contest).filter(Contest.id == contest_id).first()
     if not contest:
@@ -158,7 +212,7 @@ async def delete_contest_hero(
         )
     
     # For sponsors, ensure they own the contest
-    if user.role == "sponsor" and contest.created_by_user_id != user.id:
+    if user_role == "sponsor" and contest.created_by_user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only delete media from your own contests"
@@ -187,7 +241,7 @@ async def delete_contest_hero(
     db.commit()
     db.refresh(contest)
     
-    logger.info(f"Successfully deleted media for contest {contest_id} by user {user.id}")
+    logger.info(f"Successfully deleted media for contest {contest_id} by user {user_id}")
     
     return {
         "success": True,
