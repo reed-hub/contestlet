@@ -50,6 +50,15 @@ Welcome to the Contestlet API integration documentation! This directory contains
 **Features:**
 - 🔐 Twilio Verify authentication flow demonstration
 - 📱 SMS OTP verification (real and mock modes)
+
+### 🎨 [Cloudinary Media Integration](../frontend/CLOUDINARY_MEDIA_INTEGRATION_GUIDE.md)
+**Complete media management guide** - Everything you need for contest hero images and videos.
+
+**Features:**
+- 🖼️ Image & video upload with React components
+- 📱 Responsive image delivery and optimization
+- 🔒 Secure upload permissions and validation
+- 🌍 Environment-specific folder organization
 - 🛡️ OTP-based admin authentication demo
 - 🎯 Contest browsing and entry
 - 📍 Geolocation-based contest search
