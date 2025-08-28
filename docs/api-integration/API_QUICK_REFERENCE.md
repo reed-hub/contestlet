@@ -769,6 +769,88 @@ GET /media/health
 
 ---
 
+## 📍 **Location & Geocoding**
+
+### **POST /location/geocode** 🔐
+Convert addresses to coordinates for radius-based contest targeting.
+
+**Authentication:** Admin JWT required  
+**Purpose:** Enable radius-based contest location targeting
+
+**Request:**
+```json
+{
+  "address": "1600 Amphitheatre Parkway, Mountain View, CA"
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "coordinates": {
+    "latitude": 37.4224857,
+    "longitude": -122.0855846
+  },
+  "formatted_address": "Google Building 41, 1600, Amphitheatre Parkway, Mountain View, Santa Clara County, California, 94043, United States"
+}
+```
+
+**Error Response (404):**
+```json
+{
+  "success": false,
+  "error_message": "Address not found"
+}
+```
+
+**Features:**
+- Free OpenStreetMap Nominatim service (no API key required)
+- 1-500 character address validation
+- Comprehensive error handling
+- SSL-secured requests with proper certificates
+- 10-second timeout protection
+
+**Usage Example:**
+```javascript
+// Frontend integration
+const geocodeAddress = async (address) => {
+  const response = await fetch('/location/geocode', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${adminToken}`
+    },
+    body: JSON.stringify({ address })
+  });
+  
+  const result = await response.json();
+  if (result.success) {
+    console.log('Coordinates:', result.coordinates);
+    console.log('Formatted:', result.formatted_address);
+  } else {
+    console.error('Geocoding failed:', result.error_message);
+  }
+};
+```
+
+### **GET /location/states**
+Get list of valid US state codes and names for state-specific targeting.
+
+**Response:**
+```json
+{
+  "states": [
+    {"code": "CA", "name": "California"},
+    {"code": "NY", "name": "New York"},
+    {"code": "TX", "name": "Texas"}
+  ],
+  "total": 51
+}
+```
+
+---
+
 ## 📱 **SMS Template Variables**
 
 ### **Available Variables**
