@@ -21,6 +21,7 @@ from app.core.location_utils import (
     check_contest_eligibility,
     format_location_display
 )
+from app.services.geocoding_service import geocoding_service
 from app.models.contest import Contest
 
 router = APIRouter(prefix="/location", tags=["location"])
@@ -82,76 +83,34 @@ async def geocode_address(
     **Features:**
     - Free geocoding service (no API key required)
     - Returns formatted address and coordinates
-    - Rate limited to respect service limits
+    - Comprehensive error handling and validation
     
     **Admin Authentication Required**
     """
     try:
-        address = request.address.strip()
+        # Use the geocoding service for consistent handling
+        result = await geocoding_service.geocode_address(request.address)
         
-        if not address:
-            return GeocodeResponse(
-                success=False,
-                error_message="Address cannot be empty"
-            )
-        
-        # Use OpenStreetMap Nominatim for geocoding (free service)
-        nominatim_url = "https://nominatim.openstreetmap.org/search"
-        params = {
-            "q": address,
-            "format": "json",
-            "limit": 1,
-            "countrycodes": "us",  # Restrict to US addresses
-            "addressdetails": 1
-        }
-        
-        headers = {
-            "User-Agent": "Contestlet/1.0 (contest location service)"
-        }
-        
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(nominatim_url, params=params, headers=headers)
-            response.raise_for_status()
-            
-            data = response.json()
-            
-            if not data or len(data) == 0:
-                return GeocodeResponse(
-                    success=False,
-                    error_message="Address not found. Please try a more specific address."
-                )
-            
-            result = data[0]
-            
-            # Extract coordinates
-            lat = float(result.get("lat", 0))
-            lng = float(result.get("lon", 0))
-            
-            # Validate coordinates
-            if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
-                return GeocodeResponse(
-                    success=False,
-                    error_message="Invalid coordinates returned from geocoding service"
-                )
-            
-            # Extract formatted address
-            display_name = result.get("display_name", address)
-            
+        if result["success"]:
             return GeocodeResponse(
                 success=True,
-                coordinates=GeoCoordinates(latitude=lat, longitude=lng),
-                formatted_address=display_name
+                coordinates=GeoCoordinates(
+                    latitude=result["coordinates"]["latitude"],
+                    longitude=result["coordinates"]["longitude"]
+                ),
+                formatted_address=result["formatted_address"]
+            )
+        else:
+            return GeocodeResponse(
+                success=False,
+                error_message=result.get("message", "Address not found")
             )
     
-    except httpx.TimeoutException:
+    except HTTPException as e:
+        # Convert HTTPException to GeocodeResponse for consistent API
         return GeocodeResponse(
             success=False,
-            error_message="Geocoding service timeout. Please try again."
-        )
-    except httpx.HTTPStatusError as e:
-        return GeocodeResponse(
-            success=False,
-            error_message=f"Geocoding service error: {e.response.status_code}"
+            error_message=e.detail
         )
     except Exception as e:
         return GeocodeResponse(
