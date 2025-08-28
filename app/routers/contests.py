@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
-from datetime import datetime
-from typing import Optional, List
+from datetime import datetime, timezone
+from typing import Optional, List, Dict, Any
 from app.database.database import get_db
 from app.models.user import User
 from app.models.contest import Contest
@@ -11,8 +12,12 @@ from app.schemas.contest import ContestResponse, ContestListResponse
 from app.schemas.entry import EntryResponse
 from app.core.dependencies import get_current_user
 from app.core.geolocation import haversine_distance, validate_coordinates
+from app.core.datetime_utils import utc_now
+import logging
 
 router = APIRouter(prefix="/contests", tags=["contests"])
+security = HTTPBearer()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/active", response_model=ContestListResponse)
@@ -349,3 +354,228 @@ async def enter_contest(
     db.refresh(entry)
     
     return entry
+
+
+@router.delete("/{contest_id}")
+async def delete_contest(
+    contest_id: int,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    """
+    🗑️ Unified Contest Deletion API with Built-in Protection Logic
+    
+    **Features:**
+    - ✅ Role-based access (admin can delete any, sponsors can delete own)
+    - ✅ Built-in protection logic (no frontend duplication)
+    - ✅ Clear error responses with specific reasons
+    - ✅ Proper CORS headers
+    - ✅ Consistent response format
+    
+    **Protection Rules:**
+    - 🚫 CANNOT DELETE: Active contests, contests with entries, completed contests
+    - ✅ CAN DELETE: Upcoming contests with no entries, ended contests with no entries
+    """
+    
+    # Extract and validate JWT token
+    from app.core.auth import jwt_manager
+    
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+    
+    payload = jwt_manager.verify_token(credentials.credentials, "access")
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token"
+        )
+    
+    user_role = payload.get("role")
+    user_id = int(payload.get("sub"))
+    
+    # Validate user role - only admin and sponsor can delete contests
+    if user_role not in ["admin", "sponsor"]:
+        return {
+            "success": False,
+            "error": "INSUFFICIENT_PERMISSIONS",
+            "message": "Only admin and sponsor users can delete contests",
+            "contest_id": contest_id,
+            "user_role": user_role
+        }
+    
+    # Get contest with related data
+    contest = db.query(Contest).filter(Contest.id == contest_id).first()
+    
+    if not contest:
+        return {
+            "success": False,
+            "error": "CONTEST_NOT_FOUND",
+            "message": "Contest not found or not accessible",
+            "contest_id": contest_id
+        }
+    
+    # Permission validation: sponsors can only delete their own contests
+    if user_role == "sponsor" and contest.created_by_user_id != user_id:
+        return {
+            "success": False,
+            "error": "INSUFFICIENT_PERMISSIONS",
+            "message": "You do not have permission to delete this contest",
+            "contest_id": contest_id,
+            "user_role": user_role,
+            "contest_owner": contest.created_by_user_id
+        }
+    
+    # Get current time for status calculations
+    now = utc_now()
+    
+    # Calculate contest status (ensure timezone-aware comparison)
+    start_time = contest.start_time.replace(tzinfo=timezone.utc) if contest.start_time.tzinfo is None else contest.start_time
+    end_time = contest.end_time.replace(tzinfo=timezone.utc) if contest.end_time.tzinfo is None else contest.end_time
+    
+    if now >= start_time and now <= end_time:
+        time_status = "active"
+    elif now < start_time:
+        time_status = "upcoming"
+    else:
+        time_status = "ended"
+    
+    # Get entry count
+    entry_count = db.query(Entry).filter(Entry.contest_id == contest_id).count()
+    
+    # Determine if contest is complete (has winner selected)
+    is_complete = contest.winner_entry_id is not None
+    
+    # Apply protection rules
+    protection_errors = []
+    
+    # Rule 1: Cannot delete active contests
+    if time_status == "active":
+        protection_errors.append("Contest is currently active and accepting entries")
+    
+    # Rule 2: Cannot delete contests with entries
+    if entry_count > 0:
+        protection_errors.append(f"Contest has {entry_count} entries and cannot be deleted")
+    
+    # Rule 3: Cannot delete completed contests
+    if is_complete:
+        protection_errors.append("Contest is complete and archived")
+    
+    # If there are protection errors, return detailed error response
+    if protection_errors:
+        primary_reason = protection_errors[0]
+        
+        # Determine protection reason code
+        if time_status == "active":
+            protection_reason = "active_contest"
+        elif entry_count > 0:
+            protection_reason = "has_entries"
+        elif is_complete:
+            protection_reason = "contest_complete"
+        else:
+            protection_reason = "protected"
+        
+        return {
+            "success": False,
+            "error": "CONTEST_PROTECTED",
+            "message": f"Contest cannot be deleted: {primary_reason}",
+            "contest_id": contest_id,
+            "contest_name": contest.name,
+            "protection_reason": protection_reason,
+            "protection_errors": protection_errors,
+            "details": {
+                "is_active": time_status == "active",
+                "entry_count": entry_count,
+                "start_time": contest.start_time.isoformat() if contest.start_time else None,
+                "end_time": contest.end_time.isoformat() if contest.end_time else None,
+                "status": time_status,
+                "is_complete": is_complete,
+                "winner_selected": contest.winner_selected_at.isoformat() if contest.winner_selected_at else None
+            }
+        }
+    
+    # Contest can be safely deleted - perform deletion with cleanup
+    try:
+        # Track what we're deleting for the summary
+        cleanup_summary = {
+            "entries_deleted": 0,
+            "notifications_deleted": 0,
+            "official_rules_deleted": 0,
+            "sms_templates_deleted": 0,
+            "media_deleted": False,
+            "dependencies_cleared": 0
+        }
+        
+        # Delete related SMS templates
+        from app.models.sms_template import SMSTemplate
+        sms_count = db.query(SMSTemplate).filter(SMSTemplate.contest_id == contest_id).count()
+        db.query(SMSTemplate).filter(SMSTemplate.contest_id == contest_id).delete()
+        cleanup_summary["sms_templates_deleted"] = sms_count
+        cleanup_summary["dependencies_cleared"] += sms_count
+        
+        # Delete official rules
+        from app.models.official_rules import OfficialRules
+        rules_count = db.query(OfficialRules).filter(OfficialRules.contest_id == contest_id).count()
+        db.query(OfficialRules).filter(OfficialRules.contest_id == contest_id).delete()
+        cleanup_summary["official_rules_deleted"] = rules_count
+        cleanup_summary["dependencies_cleared"] += rules_count
+        
+        # Delete notifications (if any)
+        from app.models.notification import Notification
+        notification_count = db.query(Notification).filter(Notification.contest_id == contest_id).count()
+        db.query(Notification).filter(Notification.contest_id == contest_id).delete()
+        cleanup_summary["notifications_deleted"] = notification_count
+        cleanup_summary["dependencies_cleared"] += notification_count
+        
+        # Delete contest approval audit records
+        try:
+            from app.models.role_audit import ContestApprovalAudit
+            audit_count = db.query(ContestApprovalAudit).filter(ContestApprovalAudit.contest_id == contest_id).count()
+            db.query(ContestApprovalAudit).filter(ContestApprovalAudit.contest_id == contest_id).delete()
+            cleanup_summary["dependencies_cleared"] += audit_count
+        except Exception as e:
+            logger.warning(f"Could not delete approval audit records for contest {contest_id}: {e}")
+        
+        # Delete media from Cloudinary if it exists
+        if contest.image_public_id:
+            try:
+                from app.services.media_service import MediaService
+                media_service = MediaService()
+                if media_service.enabled:
+                    deletion_success = await media_service.delete_contest_hero(contest_id)
+                    cleanup_summary["media_deleted"] = deletion_success
+            except Exception as e:
+                logger.warning(f"Could not delete media for contest {contest_id}: {e}")
+        
+        # Store contest info for response before deletion
+        contest_name = contest.name
+        deleted_at = utc_now()
+        
+        # Finally, delete the contest itself
+        db.delete(contest)
+        db.commit()
+        
+        logger.info(f"Successfully deleted contest {contest_id} ({contest_name}) by user {user_id} ({user_role})")
+        
+        return {
+            "success": True,
+            "message": "Contest deleted successfully",
+            "contest_id": contest_id,
+            "contest_name": contest_name,
+            "deleted_at": deleted_at.isoformat(),
+            "deleted_by": {
+                "user_id": user_id,
+                "role": user_role
+            },
+            "cleanup_summary": cleanup_summary
+        }
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to delete contest {contest_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete contest: {str(e)}"
+        )
