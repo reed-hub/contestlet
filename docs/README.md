@@ -20,6 +20,7 @@
 
 ### **👨‍💻 For Developers**
 - **[API Integration Guide](./api-integration/FRONTEND_INTEGRATION_GUIDE.md)** - Complete frontend integration
+- **[Geocoding Integration Guide](./frontend/GEOCODING_INTEGRATION_GUIDE.md)** - Address verification & radius targeting
 - **[Cloudinary Media Guide](./frontend/CLOUDINARY_MEDIA_INTEGRATION_GUIDE.md)** - Media upload & management
 - **[API Quick Reference](./api-integration/API_QUICK_REFERENCE.md)** - Endpoint reference
 - **[JavaScript SDK](./api-integration/contestlet-sdk.js)** - Ready-to-use client SDK

@@ -51,6 +51,15 @@ Welcome to the Contestlet API integration documentation! This directory contains
 - 🔐 Twilio Verify authentication flow demonstration
 - 📱 SMS OTP verification (real and mock modes)
 
+### 🗺️ [Geocoding Integration Guide](../frontend/GEOCODING_INTEGRATION_GUIDE.md)
+**Complete address verification guide** - Everything you need for radius-based contest targeting.
+
+**Features:**
+- 🌍 Address to coordinates conversion with React components
+- 🆓 Free OpenStreetMap service (no API key required)
+- 🔒 Admin authentication and comprehensive error handling
+- 🎯 Ready-to-use contest form integration examples
+
 ### 🎨 [Cloudinary Media Integration](../frontend/CLOUDINARY_MEDIA_INTEGRATION_GUIDE.md)
 **Complete media management guide** - Everything you need for contest hero images and videos.
 
