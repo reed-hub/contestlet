@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, validator, computed_field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from enum import Enum
 
@@ -88,7 +88,15 @@ class ContestBase(BaseModel):
         """Validate start time is in the future (only for creation)"""
         # Only validate for creation, not for responses
         # This validator is overridden in ContestResponse
-        if v <= datetime.utcnow():
+        
+        # Handle timezone-aware vs timezone-naive datetime comparison
+        now = datetime.now(timezone.utc)
+        
+        # If v is timezone-naive, assume it's UTC
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        
+        if v <= now:
             raise ValueError('Start time must be in the future')
         return v
     
@@ -236,7 +244,9 @@ class ContestResponse(BaseModel):
     def time_until_start(self) -> Optional[int]:
         """Seconds until contest starts (negative if already started)"""
         if self.start_time:
-            return int((self.start_time - datetime.utcnow()).total_seconds())
+            now = datetime.now(timezone.utc)
+            start_time = self.start_time.replace(tzinfo=timezone.utc) if self.start_time.tzinfo is None else self.start_time
+            return int((start_time - now).total_seconds())
         return None
     
     @computed_field
@@ -244,7 +254,9 @@ class ContestResponse(BaseModel):
     def time_until_end(self) -> Optional[int]:
         """Seconds until contest ends (negative if already ended)"""
         if self.end_time:
-            return int((self.end_time - datetime.utcnow()).total_seconds())
+            now = datetime.now(timezone.utc)
+            end_time = self.end_time.replace(tzinfo=timezone.utc) if self.end_time.tzinfo is None else self.end_time
+            return int((end_time - now).total_seconds())
         return None
     
     @computed_field
@@ -280,7 +292,9 @@ class ContestResponse(BaseModel):
         """Contest progress as percentage (0-100)"""
         if self.start_time and self.end_time:
             total_duration = (self.end_time - self.start_time).total_seconds()
-            elapsed = (datetime.utcnow() - self.start_time).total_seconds()
+            now = datetime.now(timezone.utc)
+            start_time = self.start_time.replace(tzinfo=timezone.utc) if self.start_time.tzinfo is None else self.start_time
+            elapsed = (now - start_time).total_seconds()
             if total_duration > 0:
                 return min(100.0, max(0.0, (elapsed / total_duration) * 100))
         return None
