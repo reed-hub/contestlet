@@ -774,7 +774,7 @@ GET /media/health
 ### **POST /location/geocode** 🔐
 Convert addresses to coordinates for radius-based contest targeting.
 
-**Authentication:** Admin JWT required  
+**Authentication:** Admin or Sponsor JWT required  
 **Purpose:** Enable radius-based contest location targeting
 
 **Request:**
