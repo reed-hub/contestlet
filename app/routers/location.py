@@ -3,6 +3,7 @@ Location API endpoints for contest geographic targeting
 """
 
 from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 from typing import Optional
 import httpx
@@ -10,6 +11,7 @@ import asyncio
 
 from app.database.database import get_db
 from app.core.admin_auth import get_admin_user
+from app.core.dependencies import get_current_user
 from app.schemas.location import (
     LocationValidationRequest, LocationValidationResponse,
     GeocodeRequest, GeocodeResponse,
@@ -23,8 +25,10 @@ from app.core.location_utils import (
 )
 from app.services.geocoding_service import geocoding_service
 from app.models.contest import Contest
+from app.models.user import User
 
 router = APIRouter(prefix="/location", tags=["location"])
+security = HTTPBearer()
 
 @router.post("/validate", response_model=LocationValidationResponse)
 async def validate_location(
@@ -72,7 +76,8 @@ async def validate_location(
 @router.post("/geocode", response_model=GeocodeResponse)
 async def geocode_address(
     request: GeocodeRequest,
-    admin_user: dict = Depends(get_admin_user)
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
 ):
     """
     🌍 Geocode an address to coordinates
@@ -85,8 +90,31 @@ async def geocode_address(
     - Returns formatted address and coordinates
     - Comprehensive error handling and validation
     
-    **Admin Authentication Required**
+    **Contest Creator Authentication Required** (Admin or Sponsor)
     """
+    # Extract and validate JWT token
+    from app.core.auth import jwt_manager
+    
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+    
+    payload = jwt_manager.verify_token(credentials.credentials, "access")
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token"
+        )
+    
+    # Validate user has contest creation permissions
+    user_role = payload.get("role")
+    if user_role not in ["admin", "sponsor"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Contest creator permissions required for address verification"
+        )
     try:
         # Use the geocoding service for consistent handling
         result = await geocoding_service.geocode_address(request.address)
