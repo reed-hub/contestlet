@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Authentication Debug Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        input[type="text"] {
+            width: 200px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 5px;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        .step {
+            border-left: 4px solid #007bff;
+            padding-left: 15px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Admin Authentication Debug Tool</h1>
+    
+    <div class="container">
+        <h2>🚨 Issue Summary</h2>
+        <div class="error">
+            <strong>Problem:</strong> Admin endpoints return 403 Forbidden because the database was cleared, 
+            but your frontend is still using an old JWT token that references a non-existent user.
+        </div>
+        <div class="info">
+            <strong>Solution:</strong> Re-authenticate with your admin phone number to get a fresh JWT token.
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📱 Step 1: Request OTP</h2>
+        <div class="step">
+            <label>Admin Phone Number:</label>
+            <input type="text" id="phoneNumber" value="+18187958204" placeholder="+18187958204">
+            <button onclick="requestOTP()">Send OTP</button>
+            <div id="otpStatus"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🔐 Step 2: Verify OTP & Get Admin Token</h2>
+        <div class="step">
+            <label>OTP Code:</label>
+            <input type="text" id="otpCode" placeholder="123456" maxlength="6">
+            <button onclick="verifyOTP()">Verify & Get Admin Token</button>
+            <div id="verifyStatus"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🧪 Step 3: Test Admin Endpoint</h2>
+        <div class="step">
+            <button onclick="testAdminEndpoint()">Test /admin/contests/</button>
+            <div id="testStatus"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📋 Current Token Analysis</h2>
+        <button onclick="analyzeCurrentToken()">Analyze Current Token</button>
+        <div id="tokenAnalysis"></div>
+    </div>
+
+    <div class="container">
+        <h2>💾 Save New Token to Frontend</h2>
+        <div class="step">
+            <button onclick="saveTokenToLocalStorage()">Save to localStorage</button>
+            <div id="saveStatus"></div>
+            <div class="info" style="margin-top: 10px;">
+                <strong>Note:</strong> After saving, refresh your admin dashboard to use the new token.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let currentToken = null;
+
+        async function requestOTP() {
+            const phone = document.getElementById('phoneNumber').value;
+            const statusDiv = document.getElementById('otpStatus');
+            
+            if (!phone) {
+                statusDiv.innerHTML = '<div class="error">Please enter a phone number</div>';
+                return;
+            }
+
+            try {
+                statusDiv.innerHTML = '<div class="info">Sending OTP...</div>';
+                
+                const response = await fetch(`${API_BASE}/auth/request-otp`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ phone: phone })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    statusDiv.innerHTML = `<div class="success">✅ ${data.message}</div>`;
+                } else {
+                    statusDiv.innerHTML = `<div class="error">❌ ${data.detail}</div>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="error">❌ Network error: ${error.message}</div>`;
+            }
+        }
+
+        async function verifyOTP() {
+            const phone = document.getElementById('phoneNumber').value;
+            const code = document.getElementById('otpCode').value;
+            const statusDiv = document.getElementById('verifyStatus');
+            
+            if (!phone || !code) {
+                statusDiv.innerHTML = '<div class="error">Please enter both phone number and OTP code</div>';
+                return;
+            }
+
+            try {
+                statusDiv.innerHTML = '<div class="info">Verifying OTP...</div>';
+                
+                const response = await fetch(`${API_BASE}/auth/verify-otp`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        phone: phone,
+                        code: code 
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    currentToken = data.access_token;
+                    
+                    // Decode the token to show user info
+                    const tokenParts = currentToken.split('.');
+                    const payload = JSON.parse(atob(tokenParts[1]));
+                    
+                    statusDiv.innerHTML = `
+                        <div class="success">✅ Authentication successful!</div>
+                        <div class="info">
+                            <strong>New Admin Token Created:</strong><br>
+                            User ID: ${payload.sub}<br>
+                            Phone: ${payload.phone}<br>
+                            Role: ${payload.role}<br>
+                            Expires: ${new Date(payload.exp * 1000).toLocaleString()}
+                        </div>
+                        <pre style="font-size: 10px; max-height: 100px; overflow-y: auto;">${currentToken}</pre>
+                    `;
+                } else {
+                    statusDiv.innerHTML = `<div class="error">❌ ${data.detail}</div>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="error">❌ Network error: ${error.message}</div>`;
+            }
+        }
+
+        async function testAdminEndpoint() {
+            const statusDiv = document.getElementById('testStatus');
+            
+            if (!currentToken) {
+                statusDiv.innerHTML = '<div class="error">Please get an admin token first (Step 2)</div>';
+                return;
+            }
+
+            try {
+                statusDiv.innerHTML = '<div class="info">Testing admin endpoint...</div>';
+                
+                const response = await fetch(`${API_BASE}/admin/contests/`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    statusDiv.innerHTML = `
+                        <div class="success">✅ Admin endpoint working!</div>
+                        <div class="info">Response: ${JSON.stringify(data, null, 2)}</div>
+                    `;
+                } else {
+                    statusDiv.innerHTML = `
+                        <div class="error">❌ Still getting ${response.status}: ${data.detail}</div>
+                        <div class="warning">This suggests a backend configuration issue.</div>
+                    `;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="error">❌ Network error: ${error.message}</div>`;
+            }
+        }
+
+        function analyzeCurrentToken() {
+            const statusDiv = document.getElementById('tokenAnalysis');
+            
+            // Try to get token from localStorage (like frontend would)
+            const storedToken = localStorage.getItem('access_token') || localStorage.getItem('token');
+            
+            if (!storedToken) {
+                statusDiv.innerHTML = '<div class="warning">No token found in localStorage</div>';
+                return;
+            }
+
+            try {
+                const tokenParts = storedToken.split('.');
+                const payload = JSON.parse(atob(tokenParts[1]));
+                const now = Math.floor(Date.now() / 1000);
+                const isExpired = payload.exp < now;
+                
+                statusDiv.innerHTML = `
+                    <div class="${isExpired ? 'error' : 'info'}">
+                        <strong>Current Token Analysis:</strong><br>
+                        User ID: ${payload.sub}<br>
+                        Phone: ${payload.phone}<br>
+                        Role: ${payload.role}<br>
+                        Issued: ${new Date(payload.iat * 1000).toLocaleString()}<br>
+                        Expires: ${new Date(payload.exp * 1000).toLocaleString()}<br>
+                        Status: ${isExpired ? '❌ EXPIRED' : '✅ Valid'}
+                    </div>
+                    ${isExpired ? '<div class="error">This token is expired and needs to be refreshed.</div>' : ''}
+                `;
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="error">❌ Invalid token format: ${error.message}</div>`;
+            }
+        }
+
+        function saveTokenToLocalStorage() {
+            const statusDiv = document.getElementById('saveStatus');
+            
+            if (!currentToken) {
+                statusDiv.innerHTML = '<div class="error">No new token to save. Complete Step 2 first.</div>';
+                return;
+            }
+
+            try {
+                // Save to both possible localStorage keys
+                localStorage.setItem('access_token', currentToken);
+                localStorage.setItem('token', currentToken);
+                
+                statusDiv.innerHTML = `
+                    <div class="success">✅ Token saved to localStorage!</div>
+                    <div class="info">
+                        <strong>Next steps:</strong><br>
+                        1. Refresh your admin dashboard<br>
+                        2. Try accessing admin features<br>
+                        3. The 403 errors should be resolved
+                    </div>
+                `;
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="error">❌ Failed to save token: ${error.message}</div>`;
+            }
+        }
+
+        // Auto-analyze current token on page load
+        window.onload = function() {
+            analyzeCurrentToken();
+        };
+    </script>
+</body>
+</html>

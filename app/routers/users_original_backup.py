@@ -1,0 +1,241 @@
+"""
+Unified User Profile Endpoints
+
+Single endpoint for all user profile operations regardless of role.
+Replaces role-specific endpoints:
+- PUT /user/profile
+- PUT /sponsor/profile  
+- PUT /admin/profile
+
+Uses RLS for security - users can only access their own data.
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.orm import Session
+from typing import Union
+from app.database.database import get_db
+from app.core.dependencies import get_current_user
+from app.core.auth import jwt_manager
+from app.models import User
+from app.schemas.role_system import (
+    UserWithRole, 
+    UnifiedSponsorProfileResponse,
+    SponsorProfileUpdate,
+    UnifiedProfileUpdate
+)
+from app.schemas.auth import UserMeResponse
+from app.core.datetime_utils import utc_now
+
+router = APIRouter(prefix="/users", tags=["users"])
+security = HTTPBearer()
+
+
+def get_user_id_from_jwt(credentials: HTTPAuthorizationCredentials) -> int:
+    """Extract user ID from JWT token without database access"""
+    try:
+        payload = jwt_manager.verify_token(credentials.credentials, "access")
+        if not payload:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token"
+            )
+        
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing user ID in token"
+            )
+        
+        return int(user_id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token format"
+        )
+
+
+@router.get("/me", response_model=Union[UserWithRole, UnifiedSponsorProfileResponse])
+async def get_my_profile(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    """
+    Get current user's profile information.
+    
+    Returns different response formats based on user role:
+    - Admin/User: UserWithRole (basic user info)
+    - Sponsor: UnifiedSponsorProfileResponse (includes company profile)
+    
+    Security: RLS ensures users can only access their own data.
+    """
+    # Extract user ID from JWT token to avoid session issues
+    user_id = get_user_id_from_jwt(credentials)
+    
+    # Load user with sponsor_profile relationship
+    from sqlalchemy.orm import joinedload
+    user_with_profile = db.query(User).options(
+        joinedload(User.sponsor_profile)
+    ).filter(User.id == user_id).first()
+    
+    if not user_with_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    if user_with_profile.role == "sponsor" and user_with_profile.sponsor_profile:
+        # Return unified sponsor profile
+        return UnifiedSponsorProfileResponse(
+            user_id=user_with_profile.id,
+            phone=user_with_profile.phone,
+            role=user_with_profile.role,
+            is_verified=user_with_profile.is_verified,
+            created_at=user_with_profile.created_at,
+            updated_at=user_with_profile.updated_at,
+            role_assigned_at=user_with_profile.role_assigned_at,
+            full_name=user_with_profile.full_name,
+            email=user_with_profile.email,
+            bio=user_with_profile.bio,
+            company_profile=user_with_profile.sponsor_profile
+        )
+    else:
+        # Return basic user profile for admin/user roles
+        return UserWithRole(
+            id=user_with_profile.id,
+            phone=user_with_profile.phone,
+            role=user_with_profile.role,
+            is_verified=user_with_profile.is_verified,
+            created_at=user_with_profile.created_at,
+            updated_at=user_with_profile.updated_at,
+            role_assigned_at=user_with_profile.role_assigned_at,
+            created_by_user_id=user_with_profile.created_by_user_id,
+            role_assigned_by=user_with_profile.role_assigned_by,
+            full_name=user_with_profile.full_name,
+            email=user_with_profile.email,
+            bio=user_with_profile.bio
+        )
+
+
+@router.put("/me", response_model=Union[UserWithRole, UnifiedSponsorProfileResponse])
+async def update_my_profile(
+    profile_update: UnifiedProfileUpdate,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    """
+    Update current user's profile information.
+    
+    Handles all user roles with comprehensive profile updates:
+    - Admin/User/Sponsor: Personal profile (full_name, email, bio)
+    - Sponsor: Additional company profile updates
+    
+    Security: RLS ensures users can only update their own data.
+    """
+    # Extract user ID from JWT token to avoid session issues
+    user_id = get_user_id_from_jwt(credentials)
+    
+    # Load user with sponsor_profile relationship
+    from sqlalchemy.orm import joinedload
+    user_with_profile = db.query(User).options(
+        joinedload(User.sponsor_profile)
+    ).filter(User.id == user_id).first()
+    
+    if not user_with_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    update_data = profile_update.dict(exclude_unset=True)
+    
+    # Separate personal profile fields from company profile fields
+    personal_fields = {'full_name', 'email', 'bio'}
+    company_fields = {'company_name', 'website_url', 'logo_url', 'contact_name', 
+                     'contact_email', 'contact_phone', 'industry', 'description'}
+    
+    # Update personal profile fields (available to all users)
+    personal_updates = {k: v for k, v in update_data.items() if k in personal_fields}
+    if personal_updates:
+        for field, value in personal_updates.items():
+            if hasattr(user_with_profile, field):
+                setattr(user_with_profile, field, value)
+        user_with_profile.updated_at = utc_now()
+    
+    # Handle company profile updates (only for sponsors)
+    company_updates = {k: v for k, v in update_data.items() if k in company_fields}
+    if company_updates and user_with_profile.role == "sponsor":
+        if not user_with_profile.sponsor_profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Sponsor profile not found. Contact admin to set up sponsor profile."
+            )
+        
+        # Update sponsor profile fields
+        for field, value in company_updates.items():
+            if hasattr(user_with_profile.sponsor_profile, field):
+                setattr(user_with_profile.sponsor_profile, field, value)
+        
+        user_with_profile.sponsor_profile.updated_at = utc_now()
+    
+    elif company_updates and user_with_profile.role != "sponsor":
+        # Ignore company fields for non-sponsor users (no error, just skip)
+        pass
+    
+    # Commit all changes
+    db.commit()
+    db.refresh(user_with_profile)
+    if user_with_profile.sponsor_profile:
+        db.refresh(user_with_profile.sponsor_profile)
+    
+    # Return appropriate response based on role
+    if user_with_profile.role == "sponsor" and user_with_profile.sponsor_profile:
+        return UnifiedSponsorProfileResponse(
+            user_id=user_with_profile.id,
+            phone=user_with_profile.phone,
+            role=user_with_profile.role,
+            is_verified=user_with_profile.is_verified,
+            created_at=user_with_profile.created_at,
+            updated_at=user_with_profile.updated_at,
+            role_assigned_at=user_with_profile.role_assigned_at,
+            full_name=user_with_profile.full_name,
+            email=user_with_profile.email,
+            bio=user_with_profile.bio,
+            company_profile=user_with_profile.sponsor_profile
+        )
+    else:
+        return UserWithRole(
+            id=user_with_profile.id,
+            phone=user_with_profile.phone,
+            role=user_with_profile.role,
+            is_verified=user_with_profile.is_verified,
+            created_at=user_with_profile.created_at,
+            updated_at=user_with_profile.updated_at,
+            role_assigned_at=user_with_profile.role_assigned_at,
+            created_by_user_id=user_with_profile.created_by_user_id,
+            role_assigned_by=user_with_profile.role_assigned_by,
+            full_name=user_with_profile.full_name,
+            email=user_with_profile.email,
+            bio=user_with_profile.bio
+        )
+
+
+# Legacy compatibility endpoints - will be deprecated
+# These redirect to the unified endpoints above
+
+@router.get("/me/basic", response_model=UserMeResponse, deprecated=True)
+async def get_basic_user_info(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    DEPRECATED: Use GET /users/me instead.
+    
+    Basic user info compatible with /auth/me format.
+    """
+    return UserMeResponse(
+        user_id=current_user.id,
+        phone=current_user.phone,
+        role=current_user.role,
+        authenticated=True
+    )

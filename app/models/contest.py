@@ -11,10 +11,10 @@ class Contest(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     description = Column(Text)
-    # Legacy location fields (kept for backward compatibility)
-    location = Column(String)  # Format: "City, State ZIP" or similar - now used as display_text
-    latitude = Column(Float)  # Legacy latitude for geolocation
-    longitude = Column(Float)  # Legacy longitude for geolocation
+    # Location display (simplified from legacy system)
+    location = Column(String)  # Display text for location
+    latitude = Column(Float)  # Latitude for geolocation
+    longitude = Column(Float)  # Longitude for geolocation
     
     # Smart Location System fields
     location_type = Column(String(20), default="united_states", nullable=False)  # Location targeting type
@@ -26,8 +26,15 @@ class Contest(Base):
     start_time = Column(DateTime(timezone=True), nullable=False)
     end_time = Column(DateTime(timezone=True), nullable=False)
     prize_description = Column(Text)
-    active = Column(Boolean, default=True)
+    status = Column(String(20), default="draft", nullable=False, index=True)  # Enhanced status system (8 states)
     created_at = Column(DateTime(timezone=True), default=utc_now)
+    
+    # Enhanced Status System workflow fields
+    submitted_at = Column(DateTime(timezone=True), nullable=True)  # When submitted for approval
+    approved_at = Column(DateTime(timezone=True), nullable=True)   # When admin approved
+    rejected_at = Column(DateTime(timezone=True), nullable=True)   # When admin rejected
+    rejection_reason = Column(Text, nullable=True)                # Admin rejection feedback
+    approval_message = Column(Text, nullable=True)                # Admin approval notes
     
     # Winner tracking
     winner_entry_id = Column(Integer, nullable=True)  # ID of winning entry
@@ -67,9 +74,7 @@ class Contest(Base):
     # Role System Fields
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     sponsor_profile_id = Column(Integer, ForeignKey("sponsor_profiles.id"), nullable=True, index=True)
-    is_approved = Column(Boolean, default=True, nullable=False, index=True)  # Default true for backward compatibility
     approved_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
-    approved_at = Column(DateTime(timezone=True), nullable=True)
     
     # Relationships
     entries = relationship("Entry", back_populates="contest")
@@ -77,8 +82,9 @@ class Contest(Base):
     notifications = relationship("Notification", back_populates="contest")
     sms_templates = relationship("SMSTemplate", back_populates="contest")
     
-    # Role System Relationships
-    creator = relationship("User", foreign_keys=[created_by_user_id], back_populates="created_contests")
-    approver = relationship("User", foreign_keys=[approved_by_user_id], back_populates="approved_contests")
+    # Enhanced Status System Relationships
+    creator = relationship("User", foreign_keys=[created_by_user_id], back_populates="created_contests")  # Contest creator
+    approver = relationship("User", foreign_keys=[approved_by_user_id], back_populates="approved_contests")  # Contest approver
     sponsor_profile = relationship("SponsorProfile", back_populates="contests")
     approval_history = relationship("ContestApprovalAudit", back_populates="contest")
+    status_audit = relationship("ContestStatusAudit", back_populates="contest")

@@ -72,11 +72,6 @@ This directory contains all database migration scripts used to evolve the Contes
 
 ### **Security Implementation**
 
-#### **`role_system_rls_policies.sql`**
-- **Purpose**: Initial RLS policy implementation
-- **Features**: Basic row-level security policies
-- **Status**: ⚠️ Superseded by newer implementation
-
 #### **`corrected_rls_implementation_v2.sql`**
 - **Purpose**: Production-ready RLS implementation
 - **Features**: Complete security policies for all tables

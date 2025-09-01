@@ -118,11 +118,11 @@ SET role = 'admin',
     role_assigned_at = NOW()
 WHERE phone = '+18187958204';
 
--- Set all existing contests as approved (backward compatibility)
+-- Set all existing contests to published status (enhanced status system)
 UPDATE contests 
-SET is_approved = true,
+SET status = 'upcoming',
     approved_at = NOW()
-WHERE is_approved IS NULL;
+WHERE status IS NULL;
 
 -- Create initial role audit entries for existing users
 INSERT INTO role_audit (user_id, old_role, new_role, reason, created_at)

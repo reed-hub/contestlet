@@ -1,6 +1,8 @@
 # 📋 Contestlet API - Quick Reference
 
-**Complete API reference with 100% form support and SMS integration.**
+**Complete API reference with Enhanced Contest Status System, 100% form support, and comprehensive SMS integration.**
+
+**Status**: ✅ **Current & Accurate** (August 30, 2025) - **All Endpoints Verified Working**
 
 ---
 
@@ -10,6 +12,22 @@ Development: http://localhost:8000
 Staging:     https://contestlet-git-staging.vercel.app
 Production:  https://contestlet.vercel.app
 ```
+
+## 🎯 **Enhanced Contest Status System**
+
+### **8 Status States**
+| Status | Description | Visibility | Entry Allowed |
+|--------|-------------|------------|---------------|
+| `draft` | Sponsor working copy | Creator only | ❌ No |
+| `awaiting_approval` | Submitted for admin review | Creator + Admins | ❌ No |
+| `rejected` | Admin rejected, needs revision | Creator only | ❌ No |
+| `upcoming` | Approved, scheduled for future | All users* | ❌ Not started |
+| `active` | Currently accepting entries | All users* | ✅ Yes |
+| `ended` | Time expired, no winner selected | All users* | ❌ Ended |
+| `complete` | Winner selected and announced | All users* | ❌ Complete |
+| `cancelled` | Contest cancelled by admin | All users* | ❌ Cancelled |
+
+*Subject to approval filter for authenticated users
 
 ---
 
@@ -96,7 +114,7 @@ GET /contests/active?page=1&size=10
       "start_time": "2025-08-22T10:00:00Z",
       "end_time": "2025-08-25T23:59:59Z",
       "prize_description": "$500 Cash Prize",
-      "status": "active",  # upcoming, active, ended, complete
+      "status": "active",  # draft, awaiting_approval, rejected, upcoming, active, ended, complete, cancelled
       "created_at": "2025-01-15T10:00:00Z",
       
       # Advanced Configuration (NEW)
@@ -223,30 +241,252 @@ Authorization: Bearer <token>
 }
 ```
 
-### **Update Current User Profile**
+### **Update Current User Profile** ✅ **VERIFIED WORKING**
 ```bash
 PUT /users/me
 Authorization: Bearer <token>
 Content-Type: application/json
 
-# For sponsors (company profile updates)
+# Basic profile update (all user roles)
 {
-  "company_name": "Updated Company Name",
-  "website_url": "https://newwebsite.com", 
-  "contact_name": "John Doe",
-  "contact_email": "john@company.com",
-  "industry": "Technology",
-  "description": "Updated description"
+  "full_name": "Updated Name",
+  "email": "updated@email.com",
+  "bio": "Updated bio text"
 }
 
-# Response: Same format as GET /users/me
+# Success Response (200 OK)
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "phone": "+18187958204",
+    "role": "admin",
+    "is_verified": true,
+    "created_at": "2025-08-29T21:58:05.147569",
+    "updated_at": "2025-08-30T19:42:03.946855",
+    "role_assigned_at": "2025-08-29T21:58:05.147617",
+    "created_by_user_id": null,
+    "role_assigned_by": null,
+    "full_name": "Updated Name",
+    "email": "updated@email.com",
+    "bio": "Updated bio text"
+  },
+  "message": "Profile updated successfully",
+  "errors": null,
+  "meta": null,
+  "timestamp": "2025-08-30T19:42:03.948812"
+}
+
+# For sponsors (additional company profile fields)
+{
+  "full_name": "John Doe",
+  "email": "john@company.com",
+  "bio": "Company representative",
+  "company_name": "Updated Company Name",
+  "website_url": "https://newwebsite.com",
+  "industry": "Technology"
+}
 ```
 
 **Notes:**
+- ✅ **WORKING**: Endpoint fully operational after bug fix (August 30, 2025)
 - ✅ **Single endpoint** for all user roles (admin, sponsor, user)
-- ✅ **RLS Security**: Users can only access their own data
-- ✅ **Smart Response**: Returns appropriate format based on user role
-- ⚠️ **Deprecated**: Old role-specific endpoints (`/user/profile`, `/sponsor/profile`, `/admin/profile/`) still work but are deprecated
+- ✅ **CORS Support**: Proper headers for frontend integration
+- ✅ **Standardized Response**: Uses APIResponse<T> wrapper format
+- ✅ **Profile Fields**: Supports full_name, email, bio for all users
+- ✅ **Sponsor Fields**: Additional company fields for sponsor role users
+
+---
+
+## 🏢 **Sponsor Workflow Endpoints (JWT Required)**
+
+### **Create Draft Contest**
+```bash
+POST /sponsor/workflow/contests/draft
+Authorization: Bearer <sponsor_token>
+Content-Type: application/json
+
+{
+  "name": "My Contest Draft",
+  "description": "Work in progress contest",
+  "start_time": "2025-01-20T10:00:00Z",
+  "end_time": "2025-01-22T23:59:59Z",
+  "prize_description": "TBD",
+  "official_rules": {
+    "terms_and_conditions": "Draft terms...",
+    "eligibility_requirements": "18+ US residents",
+    "prize_details": "Prize details TBD"
+  }
+}
+
+# Response - Contest created in "draft" status
+{
+  "id": 123,
+  "status": "draft",
+  "name": "My Contest Draft",
+  # ... other contest fields
+}
+```
+
+### **Submit Contest for Approval**
+```bash
+POST /sponsor/workflow/contests/123/submit
+Authorization: Bearer <sponsor_token>
+Content-Type: application/json
+
+{
+  "message": "Ready for review - all details finalized"
+}
+
+# Response
+{
+  "contest_id": 123,
+  "old_status": "draft",
+  "new_status": "awaiting_approval",
+  "message": "Contest submitted for admin approval"
+}
+```
+
+### **Get Draft Contests**
+```bash
+GET /sponsor/workflow/contests/drafts
+Authorization: Bearer <sponsor_token>
+
+# Response - List of draft and rejected contests
+{
+  "contests": [
+    {
+      "id": 123,
+      "status": "draft",
+      "name": "My Contest Draft",
+      # ... other fields
+    }
+  ]
+}
+```
+
+### **Get Pending Approval Contests**
+```bash
+GET /sponsor/workflow/contests/pending
+Authorization: Bearer <sponsor_token>
+
+# Response - Contests awaiting admin approval
+{
+  "contests": [
+    {
+      "id": 124,
+      "status": "awaiting_approval",
+      "name": "Summer Contest",
+      # ... other fields
+    }
+  ]
+}
+```
+
+---
+
+## 👑 **Admin Approval Endpoints (JWT Required)**
+
+### **Get Approval Queue**
+```bash
+GET /admin/approval/queue?page=1&size=20
+Authorization: Bearer <admin_token>
+
+# Response
+{
+  "pending_contests": [
+    {
+      "contest_id": 124,
+      "name": "Summer Contest",
+      "creator_name": "John Doe",
+      "sponsor_company": "Acme Corp",
+      "submitted_at": "2025-01-15T10:00:00Z",
+      "days_pending": 2,
+      "priority": "high",  # high, medium, low
+      "start_time": "2025-01-20T10:00:00Z"
+    }
+  ],
+  "total_pending": 5,
+  "average_approval_time_days": 1.5,
+  "oldest_pending_days": 3
+}
+```
+
+### **Approve/Reject Contest**
+```bash
+POST /admin/approval/contests/124/approve
+Authorization: Bearer <admin_token>
+Content-Type: application/json
+
+{
+  "approved": true,  # or false to reject
+  "reason": "Contest meets all requirements"
+}
+
+# Response
+{
+  "contest_id": 124,
+  "old_status": "awaiting_approval",
+  "new_status": "upcoming",  # or "active" based on timing
+  "message": "Contest approved and set to upcoming"
+}
+```
+
+### **Bulk Approve/Reject**
+```bash
+POST /admin/approval/contests/bulk-approve
+Authorization: Bearer <admin_token>
+Content-Type: application/json
+
+{
+  "contest_ids": [124, 125, 126],
+  "approved": true,
+  "reason": "Batch approval - all contests meet requirements"
+}
+
+# Response
+{
+  "success_count": 3,
+  "error_count": 0,
+  "results": [
+    {"contest_id": 124, "status": "approved", "new_status": "upcoming"},
+    {"contest_id": 125, "status": "approved", "new_status": "active"},
+    {"contest_id": 126, "status": "approved", "new_status": "upcoming"}
+  ]
+}
+```
+
+### **Get Approval Statistics**
+```bash
+GET /admin/approval/statistics?days=30
+Authorization: Bearer <admin_token>
+
+# Response
+{
+  "total_contests": 150,
+  "by_status": {
+    "draft": 5,
+    "awaiting_approval": 8,
+    "upcoming": 12,
+    "active": 15,
+    "ended": 85,
+    "complete": 25
+  },
+  "avg_approval_time_hours": 18.5,
+  "pending_approval_count": 8,
+  "rejection_rate_percent": 12.5,
+  "recent_transitions": [
+    {
+      "contest_id": 123,
+      "old_status": "awaiting_approval",
+      "new_status": "upcoming",
+      "changed_by_name": "Admin User",
+      "reason": "Approved - meets requirements",
+      "created_at": "2025-01-15T14:30:00Z"
+    }
+  ]
+}
+```
 
 ---
 
@@ -984,6 +1224,266 @@ Get list of valid US state codes and names for state-specific targeting.
 - **SMS**: Full Twilio integration
 - **Database**: Supabase production branch
 - **URL**: https://contestlet.vercel.app
+
+---
+
+## 🚀 **Enhanced Status System Endpoints**
+
+### **Sponsor Workflow (`/sponsor/workflow/`)**
+
+#### **POST /sponsor/workflow/contests/draft**
+Create a new draft contest (sponsors only).
+
+```bash
+POST /sponsor/workflow/contests/draft
+Authorization: Bearer <sponsor-token>
+Content-Type: application/json
+
+{
+  "name": "My Draft Contest",
+  "description": "Contest description",
+  "start_time": "2025-08-22T10:00:00Z",
+  "end_time": "2025-08-25T23:59:59Z",
+  "prize_description": "$100 Gift Card",
+  "contest_type": "sweepstakes",
+  "entry_method": "sms",
+  "minimum_age": 18,
+  "official_rules": {
+    "eligibility_text": "18+ US residents",
+    "sponsor_name": "My Company",
+    "prize_value_usd": 100
+  }
+}
+
+# Response
+{
+  "id": 123,
+  "name": "My Draft Contest",
+  "status": "draft",
+  "created_at": "2025-01-20T10:00:00Z",
+  "created_by_user_id": 5
+}
+```
+
+#### **PUT /sponsor/workflow/contests/{id}/draft**
+Update an existing draft contest.
+
+#### **POST /sponsor/workflow/contests/{id}/submit**
+Submit draft contest for admin approval.
+
+```bash
+POST /sponsor/workflow/contests/123/submit
+Authorization: Bearer <sponsor-token>
+Content-Type: application/json
+
+{
+  "message": "Ready for review - please approve"
+}
+
+# Response
+{
+  "id": 123,
+  "status": "awaiting_approval",
+  "submitted_at": "2025-01-20T10:30:00Z",
+  "message": "Contest submitted for approval"
+}
+```
+
+#### **POST /sponsor/workflow/contests/{id}/withdraw**
+Withdraw contest from approval queue.
+
+#### **GET /sponsor/workflow/contests/drafts**
+List sponsor's draft contests.
+
+#### **GET /sponsor/workflow/contests/pending**
+List sponsor's contests pending approval.
+
+#### **DELETE /sponsor/workflow/contests/{id}**
+Delete draft contest (with protection rules).
+
+### **Admin Approval Queue (`/admin/approval/`)**
+
+#### **GET /admin/approval/queue**
+Get contests awaiting approval with pagination.
+
+```bash
+GET /admin/approval/queue?page=1&size=10&status=awaiting_approval
+Authorization: Bearer <admin-token>
+
+# Response
+{
+  "contests": [
+    {
+      "id": 123,
+      "name": "Contest Name",
+      "status": "awaiting_approval",
+      "submitted_at": "2025-01-20T10:30:00Z",
+      "created_by_user_id": 5,
+      "sponsor_name": "Company Name"
+    }
+  ],
+  "total": 5,
+  "page": 1,
+  "size": 10
+}
+```
+
+#### **POST /admin/approval/contests/{id}/approve**
+Approve a contest.
+
+```bash
+POST /admin/approval/contests/123/approve
+Authorization: Bearer <admin-token>
+Content-Type: application/json
+
+{
+  "message": "Approved - looks great!"
+}
+
+# Response
+{
+  "id": 123,
+  "status": "upcoming",
+  "approved_at": "2025-01-20T11:00:00Z",
+  "approved_by_user_id": 1,
+  "approval_message": "Approved - looks great!"
+}
+```
+
+#### **POST /admin/approval/contests/{id}/reject**
+Reject a contest with feedback.
+
+```bash
+POST /admin/approval/contests/123/reject
+Authorization: Bearer <admin-token>
+Content-Type: application/json
+
+{
+  "reason": "Prize description needs more detail"
+}
+
+# Response
+{
+  "id": 123,
+  "status": "rejected",
+  "rejected_at": "2025-01-20T11:00:00Z",
+  "rejected_by_user_id": 1,
+  "rejection_reason": "Prize description needs more detail"
+}
+```
+
+#### **POST /admin/approval/contests/bulk-approve**
+Bulk approve/reject multiple contests.
+
+```bash
+POST /admin/approval/contests/bulk-approve
+Authorization: Bearer <admin-token>
+Content-Type: application/json
+
+{
+  "contest_ids": [123, 124, 125],
+  "action": "approve",
+  "message": "Batch approval"
+}
+```
+
+#### **GET /admin/approval/statistics**
+Get approval workflow statistics.
+
+```bash
+GET /admin/approval/statistics
+Authorization: Bearer <admin-token>
+
+# Response
+{
+  "pending_approval": 5,
+  "approved_today": 12,
+  "rejected_today": 2,
+  "total_processed": 150
+}
+```
+
+#### **GET /admin/approval/contests/{id}/audit**
+Get contest status change history.
+
+```bash
+GET /admin/approval/contests/123/audit
+Authorization: Bearer <admin-token>
+
+# Response
+{
+  "contest_id": 123,
+  "audit_trail": [
+    {
+      "old_status": "draft",
+      "new_status": "awaiting_approval",
+      "changed_by_user_id": 5,
+      "reason": "Submitted for review",
+      "created_at": "2025-01-20T10:30:00Z"
+    },
+    {
+      "old_status": "awaiting_approval",
+      "new_status": "approved",
+      "changed_by_user_id": 1,
+      "reason": "Approved - looks great!",
+      "created_at": "2025-01-20T11:00:00Z"
+    }
+  ]
+}
+```
+
+### **Unified Contest Deletion (`/contests/{id}`)**
+
+#### **DELETE /contests/{id}**
+Unified contest deletion with intelligent protection rules.
+
+```bash
+DELETE /contests/123
+Authorization: Bearer <token>
+
+# Success Response
+{
+  "success": true,
+  "message": "Contest deleted successfully",
+  "contest_id": 123,
+  "contest_name": "Test Contest",
+  "deleted_at": "2025-01-20T12:00:00Z",
+  "deleted_by": {
+    "user_id": 1,
+    "role": "admin"
+  },
+  "cleanup_summary": {
+    "entries_deleted": 0,
+    "notifications_deleted": 0,
+    "official_rules_deleted": 1,
+    "sms_templates_deleted": 0,
+    "media_deleted": false,
+    "dependencies_cleared": 2
+  }
+}
+
+# Protection Error (403)
+{
+  "success": false,
+  "error": "CONTEST_PROTECTED",
+  "message": "Contest cannot be deleted: Currently active with participants",
+  "protection_reason": "active_with_entries",
+  "details": {
+    "enhanced_status": "active",
+    "is_draft": false,
+    "is_awaiting_approval": false,
+    "is_rejected": false,
+    "is_published": true,
+    "entry_count": 45,
+    "winner_selected": false
+  }
+}
+```
+
+**Protection Rules:**
+- ✅ **Can Delete**: `draft`, `rejected`, `awaiting_approval` (with no entries)
+- ❌ **Cannot Delete**: `active`, `complete`, contests with entries
+- 🔒 **Permission Required**: Sponsors can only delete their own contests
 
 ---
 

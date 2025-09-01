@@ -43,13 +43,14 @@ python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### **5. Access the Application**
-**✅ Server Status**: 🟢 **CONFIRMED WORKING**
+**✅ Server Status**: 🟢 **PRODUCTION READY** (January 2025)
 - **API**: http://localhost:8000 ✅
 - **Interactive Docs**: http://localhost:8000/docs ✅
 - **ReDoc**: http://localhost:8000/redoc ✅
 - **Health Check**: http://localhost:8000/health ✅
+- **PWA Manifest**: http://localhost:8000/manifest.json ✅
 
-**🎉 You're now running Contestlet locally!**
+**🎉 You're now running Contestlet locally with the Enhanced Status System!**
 
 ### **6. Verify Everything is Working**
 ```bash
@@ -186,31 +187,61 @@ curl -X GET "http://localhost:8000/auth/me" \
 
 ---
 
-## 🎯 **Contest Management Testing**
+## 🎯 **Enhanced Status System Testing**
 
-### **1. Create Contest (Admin)**
+### **1. Create Draft Contest (Sponsor)**
 ```bash
-curl -X POST "http://localhost:8000/admin/contests" \
-  -H "Authorization: Bearer ADMIN_JWT_TOKEN" \
+curl -X POST "http://localhost:8000/sponsor/workflow/contests/draft" \
+  -H "Authorization: Bearer SPONSOR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Test Contest",
-    "description": "A test contest",
-    "start_time": "2024-12-20T00:00:00Z",
-    "end_time": "2024-12-25T00:00:00Z",
-    "prize_description": "Test Prize"
+    "name": "My Draft Contest",
+    "description": "A test draft contest",
+    "start_time": "2025-08-22T10:00:00Z",
+    "end_time": "2025-08-25T23:59:59Z",
+    "prize_description": "$100 Gift Card",
+    "contest_type": "sweepstakes",
+    "entry_method": "sms",
+    "minimum_age": 18,
+    "official_rules": {
+      "eligibility_text": "18+ US residents",
+      "sponsor_name": "Test Company",
+      "prize_value_usd": 100
+    }
   }'
 ```
 
-### **2. View Active Contests**
+### **2. Submit for Approval**
+```bash
+curl -X POST "http://localhost:8000/sponsor/workflow/contests/1/submit" \
+  -H "Authorization: Bearer SPONSOR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Ready for review"}'
+```
+
+### **3. Admin Approval Queue**
+```bash
+curl "http://localhost:8000/admin/approval/queue" \
+  -H "Authorization: Bearer ADMIN_JWT_TOKEN"
+```
+
+### **4. Approve Contest**
+```bash
+curl -X POST "http://localhost:8000/admin/approval/contests/1/approve" \
+  -H "Authorization: Bearer ADMIN_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Approved - looks great!"}'
+```
+
+### **5. View Active Contests**
 ```bash
 curl "http://localhost:8000/contests/active"
 ```
 
-### **3. Enter Contest**
+### **6. Test Unified Deletion**
 ```bash
-curl -X POST "http://localhost:8000/contests/1/enter" \
-  -H "Authorization: Bearer USER_JWT_TOKEN"
+curl -X DELETE "http://localhost:8000/contests/1" \
+  -H "Authorization: Bearer ADMIN_JWT_TOKEN"
 ```
 
 ---

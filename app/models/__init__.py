@@ -12,6 +12,7 @@ from .admin_profile import AdminProfile
 from .sms_template import SMSTemplate
 from .sponsor_profile import SponsorProfile
 from .role_audit import RoleAudit, ContestApprovalAudit
+from .contest_status_audit import ContestStatusAudit
 
 __all__ = [
     "Base",
@@ -24,5 +25,6 @@ __all__ = [
     "SMSTemplate",
     "SponsorProfile",
     "RoleAudit",
-    "ContestApprovalAudit"
+    "ContestApprovalAudit",
+    "ContestStatusAudit"
 ]

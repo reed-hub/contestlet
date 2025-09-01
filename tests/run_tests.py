@@ -159,6 +159,20 @@ def run_type_checking():
         return True
 
 
+def run_production_readiness_check():
+    """Run comprehensive production readiness check"""
+    comprehensive_runner = Path(__file__).parent / "run_comprehensive_tests.py"
+    
+    if comprehensive_runner.exists():
+        print("🎯 Running comprehensive production readiness check...")
+        return run_command([
+            sys.executable, str(comprehensive_runner), "--production-check"
+        ], "Production readiness assessment")
+    else:
+        print("⚠️ Comprehensive test runner not found, running standard tests")
+        return run_all_tests()
+
+
 def main():
     """Main test runner"""
     parser = argparse.ArgumentParser(description="Contestlet API Test Runner")
@@ -173,6 +187,7 @@ def main():
     parser.add_argument("--lint", action="store_true", help="Run code linting")
     parser.add_argument("--types", action="store_true", help="Run type checking")
     parser.add_argument("--install-deps", action="store_true", help="Install test dependencies")
+    parser.add_argument("--production", action="store_true", help="Run comprehensive production readiness check")
     
     args = parser.parse_args()
     
@@ -191,7 +206,9 @@ def main():
     success = True
     
     # Run specific test categories
-    if args.unit:
+    if args.production:
+        success &= run_production_readiness_check()
+    elif args.unit:
         success &= run_unit_tests()
     elif args.api:
         success &= run_api_tests()

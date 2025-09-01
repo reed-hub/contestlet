@@ -130,7 +130,6 @@ class AdminContestResponse(BaseModel):
     start_time: datetime
     end_time: datetime
     prize_description: Optional[str]
-    active: bool
     created_at: datetime
     entry_count: int = Field(..., description="Number of entries for this contest")
     official_rules: Optional[OfficialRulesResponse] = Field(None, description="Official contest rules")
@@ -148,6 +147,7 @@ class AdminContestResponse(BaseModel):
     # Visual branding and sponsor information
     image_url: Optional[str] = Field(None, description="CDN URL to contest hero image (1:1 aspect ratio)")
     sponsor_url: Optional[str] = Field(None, description="Sponsor's website URL")
+    sponsor_name: Optional[str] = Field(None, description="Sponsor company name")
     
     def __init__(self, **data):
         # Compute status before creating the object based purely on time
@@ -275,3 +275,27 @@ class ContestDeleteResponse(BaseModel):
     message: str = Field(..., description="Human-readable success message")
     deleted_contest_id: int = Field(..., description="ID of the deleted contest")
     cleanup_summary: ContestDeletionSummary = Field(..., description="Summary of cleanup actions performed")
+
+
+class CampaignImportResponse(BaseModel):
+    """Response for campaign import operations"""
+    success: bool = Field(..., description="Whether the import was successful")
+    message: str = Field(..., description="Human-readable message")
+    total_rows: int = Field(..., description="Total number of rows processed")
+    successful_imports: int = Field(..., description="Number of successful imports")
+    failed_imports: int = Field(..., description="Number of failed imports")
+    imported_contest_ids: List[int] = Field(default_factory=list, description="IDs of successfully imported contests")
+    errors: List[dict] = Field(default_factory=list, description="List of import errors")
+
+
+class CampaignValidationResponse(BaseModel):
+    """Response for campaign CSV validation"""
+    valid: bool = Field(..., description="Whether the CSV format is valid")
+    total_columns: int = Field(..., description="Total number of columns")
+    total_rows: int = Field(..., description="Total number of rows")
+    required_columns: List[str] = Field(..., description="List of required columns")
+    optional_columns: List[str] = Field(..., description="List of optional columns")
+    present_columns: List[str] = Field(..., description="List of columns present in CSV")
+    missing_required_columns: List[str] = Field(default_factory=list, description="Missing required columns")
+    extra_columns: List[str] = Field(default_factory=list, description="Extra columns not recognized")
+    validation_errors: List[str] = Field(default_factory=list, description="List of validation errors")

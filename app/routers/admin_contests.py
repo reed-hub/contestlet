@@ -4,6 +4,9 @@ from typing import List
 from datetime import datetime
 from app.database.database import get_db
 from app.models.user import User
+from app.models.entry import Entry
+from app.core.contest_status import calculate_contest_status
+from app.core.datetime_utils import utc_now
 from app.schemas.admin import (
     AdminContestCreate, AdminContestUpdate, AdminContestResponse,
     AdminEntryResponse, WinnerSelectionResponse, WinnerNotificationResponse,
@@ -28,7 +31,35 @@ async def create_contest(
     """Create a new contest with admin validation"""
     contest_service = ContestService(db)
     contest = contest_service.create_contest(contest_data, int(admin_user["user_id"]) if admin_user["user_id"] != "legacy_admin" else 1)
-    return AdminContestResponse.from_orm(contest)
+    
+    # Get entry count for this contest
+    entry_count = db.query(Entry).filter(Entry.contest_id == contest.id).count()
+    
+    # Manually construct response with required fields
+    contest_dict = {
+        "id": contest.id,
+        "name": contest.name,
+        "description": contest.description,
+        "location": contest.location,
+        "latitude": contest.latitude,
+        "longitude": contest.longitude,
+        "start_time": contest.start_time,
+        "end_time": contest.end_time,
+        "prize_description": contest.prize_description,
+        "created_at": contest.created_at,
+        "entry_count": entry_count,
+        "status": contest.status,
+        "winner_entry_id": contest.winner_entry_id,
+        "winner_phone": contest.winner_phone,
+        "winner_selected_at": contest.winner_selected_at,
+        "created_timezone": contest.created_timezone,
+        "admin_user_id": contest.admin_user_id,
+        "image_url": contest.image_url,
+        "sponsor_url": contest.sponsor_url,
+        "official_rules": contest.official_rules
+    }
+    
+    return AdminContestResponse(**contest_dict)
 
 
 @router.put("/{contest_id}", response_model=AdminContestResponse)
@@ -45,14 +76,15 @@ async def update_contest(
     # Check if admin override was used for response message
     override_used = contest_data.admin_override and contest_data.override_reason
     
-    # Create response with computed fields
-    now = datetime.utcnow()
-    if contest.start_time > now:
-        status = "upcoming"
-    elif contest.end_time <= now:
-        status = "ended"
-    else:
-        status = "active"
+    # Create response with enhanced status system
+    current_time = utc_now()
+    calculated_status = calculate_contest_status(
+        contest.status,
+        contest.start_time,
+        contest.end_time,
+        contest.winner_selected_at,
+        current_time
+    )
     
     contest_data_dict = {
         'id': contest.id,
@@ -64,10 +96,10 @@ async def update_contest(
         'start_time': contest.start_time,
         'end_time': contest.end_time,
         'prize_description': contest.prize_description,
-        'active': contest.active,
+
         'created_at': contest.created_at,
         'entry_count': len(contest.entries) if contest.entries else 0,
-        'status': status,
+        'status': calculated_status,  # Enhanced status calculation
         'winner_entry_id': contest.winner_entry_id,
         'winner_phone': contest.winner_phone,
         'winner_selected_at': contest.winner_selected_at,
@@ -75,7 +107,17 @@ async def update_contest(
         'admin_user_id': contest.admin_user_id,
         'image_url': contest.image_url,
         'sponsor_url': contest.sponsor_url,
-        'official_rules': None
+        'official_rules': None,
+        
+        # Enhanced Status System fields
+        'submitted_at': getattr(contest, 'submitted_at', None),
+        'approved_at': getattr(contest, 'approved_at', None),
+        'rejected_at': getattr(contest, 'rejected_at', None),
+        'rejection_reason': getattr(contest, 'rejection_reason', None),
+        'approval_message': getattr(contest, 'approval_message', None),
+
+        'created_by_user_id': getattr(contest, 'created_by_user_id', None),
+        'sponsor_name': contest.sponsor_profile.company_name if contest.sponsor_profile else None
     }
     
     return AdminContestResponse(**contest_data_dict)
@@ -103,16 +145,17 @@ async def get_admin_contest_by_id(
             detail="Contest not found"
         )
     
-    # Compute status based on current time
-    now = datetime.utcnow()
-    if contest.start_time > now:
-        status = "upcoming"
-    elif contest.end_time <= now:
-        status = "ended"
-    else:
-        status = "active"
+    # Use Enhanced Status System calculation
+    current_time = utc_now()
+    calculated_status = calculate_contest_status(
+        contest.status,
+        contest.start_time,
+        contest.end_time,
+        contest.winner_selected_at,
+        current_time
+    )
     
-    # Create response with all required fields
+    # Create response with enhanced status system fields
     contest_data = {
         'id': contest.id,
         'name': contest.name,
@@ -123,10 +166,10 @@ async def get_admin_contest_by_id(
         'start_time': contest.start_time,
         'end_time': contest.end_time,
         'prize_description': contest.prize_description,
-        'active': contest.active,
+
         'created_at': contest.created_at,
         'entry_count': len(contest.entries) if contest.entries else 0,
-        'status': status,
+        'status': calculated_status,  # Enhanced status calculation
         'winner_entry_id': contest.winner_entry_id,
         'winner_phone': contest.winner_phone,
         'winner_selected_at': contest.winner_selected_at,
@@ -134,7 +177,17 @@ async def get_admin_contest_by_id(
         'admin_user_id': contest.admin_user_id,
         'image_url': contest.image_url,
         'sponsor_url': contest.sponsor_url,
-        'official_rules': None  # TODO: Load if needed
+        'official_rules': None,  # TODO: Load if needed
+        
+        # Enhanced Status System fields
+        'submitted_at': getattr(contest, 'submitted_at', None),
+        'approved_at': getattr(contest, 'approved_at', None),
+        'rejected_at': getattr(contest, 'rejected_at', None),
+        'rejection_reason': getattr(contest, 'rejection_reason', None),
+        'approval_message': getattr(contest, 'approval_message', None),
+
+        'created_by_user_id': getattr(contest, 'created_by_user_id', None),
+        'sponsor_name': contest.sponsor_profile.company_name if contest.sponsor_profile else None
     }
     
     return AdminContestResponse(**contest_data)
@@ -149,19 +202,20 @@ async def get_all_contests(
     contest_service = ContestService(db)
     contests = contest_service.get_all_contests()
     
-    # Convert contests to response format with computed fields
+    # Convert contests to response format with enhanced status system
     contest_responses = []
     for contest in contests:
-        # Compute status based on current time
-        now = datetime.utcnow()
-        if contest.start_time > now:
-            status = "upcoming"
-        elif contest.end_time <= now:
-            status = "ended"
-        else:
-            status = "active"
+        # Use Enhanced Status System calculation
+        current_time = utc_now()
+        calculated_status = calculate_contest_status(
+            contest.status,
+            contest.start_time,
+            contest.end_time,
+            contest.winner_selected_at,
+            current_time
+        )
         
-        # Create response dict with all required fields
+        # Create response dict with enhanced status system fields
         contest_data = {
             'id': contest.id,
             'name': contest.name,
@@ -172,10 +226,10 @@ async def get_all_contests(
             'start_time': contest.start_time,
             'end_time': contest.end_time,
             'prize_description': contest.prize_description,
-            'active': contest.active,
+    
             'created_at': contest.created_at,
             'entry_count': len(contest.entries) if contest.entries else 0,
-            'status': status,
+            'status': calculated_status,  # Enhanced status calculation
             'winner_entry_id': contest.winner_entry_id,
             'winner_phone': contest.winner_phone,
             'winner_selected_at': contest.winner_selected_at,
@@ -183,7 +237,17 @@ async def get_all_contests(
             'admin_user_id': contest.admin_user_id,
             'image_url': contest.image_url,
             'sponsor_url': contest.sponsor_url,
-            'official_rules': None  # TODO: Load if needed
+            'official_rules': None,  # TODO: Load if needed
+            
+            # Enhanced Status System fields
+            'submitted_at': getattr(contest, 'submitted_at', None),
+            'approved_at': getattr(contest, 'approved_at', None),
+            'rejected_at': getattr(contest, 'rejected_at', None),
+            'rejection_reason': getattr(contest, 'rejection_reason', None),
+            'approval_message': getattr(contest, 'approval_message', None),
+    
+            'created_by_user_id': getattr(contest, 'created_by_user_id', None),
+            'sponsor_name': contest.sponsor_profile.company_name if contest.sponsor_profile else None
         }
         contest_responses.append(AdminContestResponse(**contest_data))
     

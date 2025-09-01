@@ -1,241 +1,287 @@
 """
-Unified User Profile Endpoints
-
-Single endpoint for all user profile operations regardless of role.
-Replaces role-specific endpoints:
-- PUT /user/profile
-- PUT /sponsor/profile  
-- PUT /admin/profile
-
-Uses RLS for security - users can only access their own data.
+Clean, refactored unified user profile endpoints.
+Uses new clean architecture with service layer and proper error handling.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
-from typing import Union
-from app.database.database import get_db
-from app.core.dependencies import get_current_user
-from app.core.auth import jwt_manager
-from app.models import User
+from fastapi import APIRouter, Depends, Path
+from typing import Union, Optional
+
+from app.core.services.user_service import UserService
+from app.core.dependencies.auth import get_current_user, get_admin_user
+from app.core.dependencies.services import get_user_service
+from app.models.user import User
+from app.shared.types.pagination import PaginationParams, UserFilterParams
+from app.shared.types.responses import APIResponse, PaginatedResponse
+from app.api.responses.user import (
+    UserProfileResponse,
+    UserListResponse,
+    UserUpdateResponse,
+    SponsorListResponse
+)
 from app.schemas.role_system import (
     UserWithRole, 
     UnifiedSponsorProfileResponse,
-    SponsorProfileUpdate,
     UnifiedProfileUpdate
 )
 from app.schemas.auth import UserMeResponse
-from app.core.datetime_utils import utc_now
+from app.shared.constants.auth import AuthConstants, AuthMessages
 
 router = APIRouter(prefix="/users", tags=["users"])
-security = HTTPBearer()
 
 
-def get_user_id_from_jwt(credentials: HTTPAuthorizationCredentials) -> int:
-    """Extract user ID from JWT token without database access"""
-    try:
-        payload = jwt_manager.verify_token(credentials.credentials, "access")
-        if not payload:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired token"
-            )
-        
-        user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Missing user ID in token"
-            )
-        
-        return int(user_id)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token format"
-        )
-
-
-@router.get("/me", response_model=Union[UserWithRole, UnifiedSponsorProfileResponse])
+@router.get("/me", response_model=UserProfileResponse)
 async def get_my_profile(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
-):
+    current_user: User = Depends(get_current_user),
+    user_service: UserService = Depends(get_user_service)
+) -> UserProfileResponse:
     """
     Get current user's profile information.
-    
-    Returns different response formats based on user role:
-    - Admin/User: UserWithRole (basic user info)
-    - Sponsor: UnifiedSponsorProfileResponse (includes company profile)
-    
-    Security: RLS ensures users can only access their own data.
+    Clean controller with service delegation and type safety.
     """
-    # Extract user ID from JWT token to avoid session issues
-    user_id = get_user_id_from_jwt(credentials)
-    
-    # Load user with sponsor_profile relationship
-    from sqlalchemy.orm import joinedload
-    user_with_profile = db.query(User).options(
-        joinedload(User.sponsor_profile)
-    ).filter(User.id == user_id).first()
-    
-    if not user_with_profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
-    if user_with_profile.role == "sponsor" and user_with_profile.sponsor_profile:
-        # Return unified sponsor profile
-        return UnifiedSponsorProfileResponse(
-            user_id=user_with_profile.id,
-            phone=user_with_profile.phone,
-            role=user_with_profile.role,
-            is_verified=user_with_profile.is_verified,
-            created_at=user_with_profile.created_at,
-            updated_at=user_with_profile.updated_at,
-            role_assigned_at=user_with_profile.role_assigned_at,
-            full_name=user_with_profile.full_name,
-            email=user_with_profile.email,
-            bio=user_with_profile.bio,
-            company_profile=user_with_profile.sponsor_profile
-        )
-    else:
-        # Return basic user profile for admin/user roles
-        return UserWithRole(
-            id=user_with_profile.id,
-            phone=user_with_profile.phone,
-            role=user_with_profile.role,
-            is_verified=user_with_profile.is_verified,
-            created_at=user_with_profile.created_at,
-            updated_at=user_with_profile.updated_at,
-            role_assigned_at=user_with_profile.role_assigned_at,
-            created_by_user_id=user_with_profile.created_by_user_id,
-            role_assigned_by=user_with_profile.role_assigned_by,
-            full_name=user_with_profile.full_name,
-            email=user_with_profile.email,
-            bio=user_with_profile.bio
-        )
-
-
-@router.put("/me", response_model=Union[UserWithRole, UnifiedSponsorProfileResponse])
-async def update_my_profile(
-    profile_update: UnifiedProfileUpdate,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
-):
-    """
-    Update current user's profile information.
-    
-    Handles all user roles with comprehensive profile updates:
-    - Admin/User/Sponsor: Personal profile (full_name, email, bio)
-    - Sponsor: Additional company profile updates
-    
-    Security: RLS ensures users can only update their own data.
-    """
-    # Extract user ID from JWT token to avoid session issues
-    user_id = get_user_id_from_jwt(credentials)
-    
-    # Load user with sponsor_profile relationship
-    from sqlalchemy.orm import joinedload
-    user_with_profile = db.query(User).options(
-        joinedload(User.sponsor_profile)
-    ).filter(User.id == user_id).first()
-    
-    if not user_with_profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
-    update_data = profile_update.dict(exclude_unset=True)
-    
-    # Separate personal profile fields from company profile fields
-    personal_fields = {'full_name', 'email', 'bio'}
-    company_fields = {'company_name', 'website_url', 'logo_url', 'contact_name', 
-                     'contact_email', 'contact_phone', 'industry', 'description'}
-    
-    # Update personal profile fields (available to all users)
-    personal_updates = {k: v for k, v in update_data.items() if k in personal_fields}
-    if personal_updates:
-        for field, value in personal_updates.items():
-            if hasattr(user_with_profile, field):
-                setattr(user_with_profile, field, value)
-        user_with_profile.updated_at = utc_now()
-    
-    # Handle company profile updates (only for sponsors)
-    company_updates = {k: v for k, v in update_data.items() if k in company_fields}
-    if company_updates and user_with_profile.role == "sponsor":
-        if not user_with_profile.sponsor_profile:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Sponsor profile not found. Contact admin to set up sponsor profile."
-            )
-        
-        # Update sponsor profile fields
-        for field, value in company_updates.items():
-            if hasattr(user_with_profile.sponsor_profile, field):
-                setattr(user_with_profile.sponsor_profile, field, value)
-        
-        user_with_profile.sponsor_profile.updated_at = utc_now()
-    
-    elif company_updates and user_with_profile.role != "sponsor":
-        # Ignore company fields for non-sponsor users (no error, just skip)
-        pass
-    
-    # Commit all changes
-    db.commit()
-    db.refresh(user_with_profile)
-    if user_with_profile.sponsor_profile:
-        db.refresh(user_with_profile.sponsor_profile)
+    profile = await user_service.get_user_profile(current_user.id)
     
     # Return appropriate response based on role
-    if user_with_profile.role == "sponsor" and user_with_profile.sponsor_profile:
-        return UnifiedSponsorProfileResponse(
-            user_id=user_with_profile.id,
-            phone=user_with_profile.phone,
-            role=user_with_profile.role,
-            is_verified=user_with_profile.is_verified,
-            created_at=user_with_profile.created_at,
-            updated_at=user_with_profile.updated_at,
-            role_assigned_at=user_with_profile.role_assigned_at,
-            full_name=user_with_profile.full_name,
-            email=user_with_profile.email,
-            bio=user_with_profile.bio,
-            company_profile=user_with_profile.sponsor_profile
+    if profile.role == AuthConstants.SPONSOR_ROLE and profile.sponsor_profile:
+        profile_data = UnifiedSponsorProfileResponse(
+            user_id=profile.id,
+            phone=profile.phone,
+            role=profile.role,
+            is_verified=profile.is_verified,
+            created_at=profile.created_at,
+            updated_at=profile.updated_at,
+            role_assigned_at=profile.role_assigned_at,
+            full_name=profile.full_name,
+            email=profile.email,
+            bio=profile.bio,
+            company_profile=profile.sponsor_profile
         )
     else:
-        return UserWithRole(
-            id=user_with_profile.id,
-            phone=user_with_profile.phone,
-            role=user_with_profile.role,
-            is_verified=user_with_profile.is_verified,
-            created_at=user_with_profile.created_at,
-            updated_at=user_with_profile.updated_at,
-            role_assigned_at=user_with_profile.role_assigned_at,
-            created_by_user_id=user_with_profile.created_by_user_id,
-            role_assigned_by=user_with_profile.role_assigned_by,
-            full_name=user_with_profile.full_name,
-            email=user_with_profile.email,
-            bio=user_with_profile.bio
+        profile_data = UserWithRole(
+            id=profile.id,
+            phone=profile.phone,
+            role=profile.role,
+            is_verified=profile.is_verified,
+            created_at=profile.created_at,
+            updated_at=profile.updated_at,
+            role_assigned_at=profile.role_assigned_at,
+            created_by_user_id=profile.created_by_user_id,
+            role_assigned_by=profile.role_assigned_by,
+            full_name=profile.full_name,
+            email=profile.email,
+            bio=profile.bio
         )
+    
+    return UserProfileResponse(
+        success=True,
+        data=profile_data,
+        message="User profile retrieved successfully"
+    )
 
 
-# Legacy compatibility endpoints - will be deprecated
-# These redirect to the unified endpoints above
+@router.put("/me", response_model=UserUpdateResponse)
+async def update_my_profile(
+    profile_update: UnifiedProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    user_service: UserService = Depends(get_user_service)
+) -> UserUpdateResponse:
+    """
+    Update current user's profile information.
+    Handles all user roles with comprehensive profile updates.
+    """
+    updated_profile = await user_service.update_user_profile(
+        user_id=current_user.id,
+        profile_update=profile_update,
+        user_role=current_user.role
+    )
+    
+    # Return appropriate response based on role
+    if updated_profile.role == AuthConstants.SPONSOR_ROLE and updated_profile.sponsor_profile:
+        profile_data = UnifiedSponsorProfileResponse(
+            user_id=updated_profile.id,
+            phone=updated_profile.phone,
+            role=updated_profile.role,
+            is_verified=updated_profile.is_verified,
+            created_at=updated_profile.created_at,
+            updated_at=updated_profile.updated_at,
+            role_assigned_at=updated_profile.role_assigned_at,
+            full_name=updated_profile.full_name,
+            email=updated_profile.email,
+            bio=updated_profile.bio,
+            company_profile=updated_profile.sponsor_profile
+        )
+    else:
+        profile_data = UserWithRole(
+            id=updated_profile.id,
+            phone=updated_profile.phone,
+            role=updated_profile.role,
+            is_verified=updated_profile.is_verified,
+            created_at=updated_profile.created_at,
+            updated_at=updated_profile.updated_at,
+            role_assigned_at=updated_profile.role_assigned_at,
+            created_by_user_id=updated_profile.created_by_user_id,
+            role_assigned_by=updated_profile.role_assigned_by,
+            full_name=updated_profile.full_name,
+            email=updated_profile.email,
+            bio=updated_profile.bio
+        )
+    
+    return UserUpdateResponse(
+        success=True,
+        data=profile_data,
+        message="Profile updated successfully"
+    )
 
-@router.get("/me/basic", response_model=UserMeResponse, deprecated=True)
+
+@router.get("/", response_model=UserListResponse)
+async def get_all_users(
+    pagination: PaginationParams = Depends(),
+    filters: UserFilterParams = Depends(),
+    admin_user: User = Depends(get_admin_user),
+    user_service: UserService = Depends(get_user_service)
+) -> UserListResponse:
+    """
+    Get all users with pagination and filtering (admin only).
+    Clean controller with service delegation.
+    """
+    users = await user_service.get_all_users_paginated(
+        pagination=pagination,
+        filters=filters
+    )
+    
+    return UserListResponse(
+        success=True,
+        data=users,
+        message="Users retrieved successfully"
+    )
+
+
+@router.get("/{user_id}", response_model=UserProfileResponse)
+async def get_user_by_id(
+    user_id: int = Path(..., gt=0, description="User ID"),
+    admin_user: User = Depends(get_admin_user),
+    user_service: UserService = Depends(get_user_service)
+) -> UserProfileResponse:
+    """
+    Get specific user by ID (admin only).
+    Uses clean service delegation with proper authorization.
+    """
+    user = await user_service.get_user_profile(user_id)
+    
+    # Return appropriate response based on role
+    if user.role == AuthConstants.SPONSOR_ROLE and user.sponsor_profile:
+        profile_data = UnifiedSponsorProfileResponse(
+            user_id=user.id,
+            phone=user.phone,
+            role=user.role,
+            is_verified=user.is_verified,
+            created_at=user.created_at,
+            updated_at=user.updated_at,
+            role_assigned_at=user.role_assigned_at,
+            full_name=user.full_name,
+            email=user.email,
+            bio=user.bio,
+            company_profile=user.sponsor_profile
+        )
+    else:
+        profile_data = UserWithRole(
+            id=user.id,
+            phone=user.phone,
+            role=user.role,
+            is_verified=user.is_verified,
+            created_at=user.created_at,
+            updated_at=user.updated_at,
+            role_assigned_at=user.role_assigned_at,
+            created_by_user_id=user.created_by_user_id,
+            role_assigned_by=user.role_assigned_by,
+            full_name=user.full_name,
+            email=user.email,
+            bio=user.bio
+        )
+    
+    return UserProfileResponse(
+        success=True,
+        data=profile_data,
+        message="User profile retrieved successfully"
+    )
+
+
+@router.put("/{user_id}/role")
+async def update_user_role(
+    user_id: int = Path(..., gt=0, description="User ID"),
+    new_role: str = Path(..., description="New role to assign"),
+    admin_user: User = Depends(get_admin_user),
+    user_service: UserService = Depends(get_user_service)
+) -> APIResponse[dict]:
+    """
+    Update user role (admin only).
+    Uses service layer with proper validation.
+    """
+    updated_user = await user_service.update_user_role(
+        user_id=user_id,
+        new_role=new_role,
+        admin_user_id=admin_user.id
+    )
+    
+    return APIResponse(
+        success=True,
+        data={
+            "user_id": updated_user.id,
+            "old_role": "previous_role",  # Could be tracked in service
+            "new_role": updated_user.role,
+            "updated_by": admin_user.id
+        },
+        message=f"User role updated to {new_role} successfully"
+    )
+
+
+@router.get("/sponsors", response_model=SponsorListResponse)
+async def get_all_sponsors(
+    admin_user: User = Depends(get_admin_user),
+    user_service: UserService = Depends(get_user_service)
+) -> SponsorListResponse:
+    """
+    Get all verified sponsor profiles for admin use.
+    Clean endpoint with service delegation.
+    """
+    sponsors = await user_service.get_all_sponsors()
+    
+    sponsor_data = [
+        {
+            "id": sponsor.sponsor_profile.id if sponsor.sponsor_profile else sponsor.id,
+            "company_name": sponsor.sponsor_profile.company_name if sponsor.sponsor_profile else "No Company",
+            "contact_name": sponsor.sponsor_profile.contact_name if sponsor.sponsor_profile else sponsor.full_name,
+            "contact_email": sponsor.sponsor_profile.contact_email if sponsor.sponsor_profile else sponsor.email,
+            "user_id": sponsor.id,
+            "is_verified": sponsor.sponsor_profile.is_verified if sponsor.sponsor_profile else False
+        } for sponsor in sponsors
+    ]
+    
+    return SponsorListResponse(
+        success=True,
+        data=sponsor_data,
+        message="Sponsors retrieved successfully"
+    )
+
+
+# Legacy compatibility endpoint
+@router.get("/me/basic", response_model=APIResponse[UserMeResponse])
 async def get_basic_user_info(
     current_user: User = Depends(get_current_user)
-):
+) -> APIResponse[UserMeResponse]:
     """
     DEPRECATED: Use GET /users/me instead.
-    
     Basic user info compatible with /auth/me format.
     """
-    return UserMeResponse(
+    user_data = UserMeResponse(
         user_id=current_user.id,
         phone=current_user.phone,
         role=current_user.role,
-        authenticated=True
+        is_verified=current_user.is_verified,
+        created_at=current_user.created_at
+    )
+    
+    return APIResponse(
+        success=True,
+        data=user_data,
+        message="Basic user info retrieved successfully"
     )

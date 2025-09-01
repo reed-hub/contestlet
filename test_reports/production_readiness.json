@@ -1,0 +1,47 @@
+{
+  "timestamp": "2025-08-30 09:57:44",
+  "overall_status": "NOT_READY",
+  "score": 15,
+  "max_score": 100,
+  "categories": {
+    "smoke_tests": {
+      "score": 15,
+      "max_score": 15,
+      "status": "PASS"
+    },
+    "e2e_tests": {
+      "score": 0,
+      "max_score": 20,
+      "status": "FAIL"
+    },
+    "security_tests": {
+      "score": 0,
+      "max_score": 15,
+      "status": "FAIL"
+    },
+    "performance_tests": {
+      "score": 0,
+      "max_score": 10,
+      "status": "FAIL"
+    },
+    "coverage": {
+      "score": 0,
+      "max_score": 20,
+      "status": "FAIL",
+      "details": "49.3% coverage"
+    },
+    "endpoints": {
+      "score": 0,
+      "max_score": 20,
+      "status": "FAIL"
+    }
+  },
+  "blockers": [
+    "E2E tests failed",
+    "Security tests failed",
+    "Performance tests failed",
+    "Coverage 49.3% below 80%",
+    "Critical endpoints not responding"
+  ],
+  "warnings": []
+}

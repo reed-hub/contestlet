@@ -30,12 +30,20 @@ class WinnerSelectionMethod(str, Enum):
 
 
 class ContestStatus(str, Enum):
-    """Contest status enumeration"""
-    UPCOMING = "upcoming"
-    ACTIVE = "active"
-    ENDED = "ended"
-    COMPLETE = "complete"
-    CANCELLED = "cancelled"
+    """Enhanced contest status enumeration with publication workflow"""
+    # Publication workflow statuses
+    DRAFT = "draft"                    # Sponsor working copy, only visible to creator
+    AWAITING_APPROVAL = "awaiting_approval"  # Submitted for admin review
+    REJECTED = "rejected"              # Admin rejected, back to creator
+    
+    # Published contest lifecycle statuses
+    UPCOMING = "upcoming"              # Approved, scheduled for future
+    ACTIVE = "active"                  # Currently accepting entries
+    ENDED = "ended"                    # Time expired, no winner selected
+    COMPLETE = "complete"              # Winner selected and announced
+    
+    # Legacy status (may be used in future)
+    CANCELLED = "cancelled"            # Contest cancelled by admin
 
 
 class ContestBase(BaseModel):
@@ -49,7 +57,6 @@ class ContestBase(BaseModel):
     start_time: datetime = Field(..., description="Contest start time")
     end_time: datetime = Field(..., description="Contest end time")
     prize_description: Optional[str] = Field(None, max_length=1000, description="Prize description")
-    active: bool = Field(True, description="Whether the contest is active")
     
     # Contest configuration
     contest_type: ContestType = Field(ContestType.GENERAL, description="Contest type")
@@ -203,6 +210,7 @@ class ContestResponse(BaseModel):
     # Role system
     created_by_user_id: Optional[int] = None
     sponsor_profile_id: Optional[int] = None
+    sponsor_name: Optional[str] = None  # Standardized sponsor name field
     is_approved: bool = True
     approved_by_user_id: Optional[int] = None
     approved_at: Optional[datetime] = None
@@ -241,6 +249,38 @@ class ContestResponse(BaseModel):
     
     @computed_field
     @property
+    def is_draft(self) -> bool:
+        """Check if contest is in draft status"""
+        return self.status == ContestStatus.DRAFT
+    
+    @computed_field
+    @property
+    def is_awaiting_approval(self) -> bool:
+        """Check if contest is awaiting approval"""
+        return self.status == ContestStatus.AWAITING_APPROVAL
+    
+    @computed_field
+    @property
+    def is_rejected(self) -> bool:
+        """Check if contest was rejected"""
+        return self.status == ContestStatus.REJECTED
+    
+    @computed_field
+    @property
+    def is_published(self) -> bool:
+        """Check if contest is published (visible to public)"""
+        from app.core.contest_status import is_published_status
+        return is_published_status(self.status)
+    
+    @computed_field
+    @property
+    def status_info(self) -> dict:
+        """Get display information for current status"""
+        from app.core.contest_status import get_status_display_info
+        return get_status_display_info(self.status)
+    
+    @computed_field
+    @property
     def time_until_start(self) -> Optional[int]:
         """Seconds until contest starts (negative if already started)"""
         if self.start_time:
@@ -271,8 +311,9 @@ class ContestResponse(BaseModel):
     @property
     def can_enter(self) -> bool:
         """Check if users can currently enter the contest"""
+        from app.core.contest_status import can_enter_contest
         return (
-            self.is_active and 
+            can_enter_contest(self.status) and 
             not self.is_winner_selected and
             (self.total_entry_limit is None or self.entry_count < self.total_entry_limit)
         )

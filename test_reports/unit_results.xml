@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="1" failures="0" skipped="0" tests="1" time="1.905" timestamp="2025-08-30T07:27:38.116339" hostname="MacBook-Pro-8.local"><testcase classname="" name="tests.unit.test_clean_architecture" time="0.000"><error message="collection failure">/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/_pytest/runner.py:341: in from_call
+    result: Optional[TResult] = func()
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/_pytest/runner.py:372: in &lt;lambda&gt;
+    call = CallInfo.from_call(lambda: list(collector.collect()), "collect")
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/_pytest/python.py:531: in collect
+    self._inject_setup_module_fixture()
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/_pytest/python.py:545: in _inject_setup_module_fixture
+    self.obj, ("setUpModule", "setup_module")
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/_pytest/python.py:310: in obj
+    self._obj = obj = self._getobj()
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/_pytest/python.py:528: in _getobj
+    return self._importtestmodule()
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/_pytest/python.py:617: in _importtestmodule
+    mod = import_path(self.path, mode=importmode, root=self.config.rootpath)
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/_pytest/pathlib.py:567: in import_path
+    importlib.import_module(module_name)
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1204: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1176: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1147: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:690: in _load_unlocked
+    ???
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/_pytest/assertion/rewrite.py:186: in exec_module
+    exec(co, module.__dict__)
+tests/unit/test_clean_architecture.py:20: in &lt;module&gt;
+    from app.shared.types.pagination import PaginationParams, create_paginated_result
+app/shared/types/pagination.py:57: in &lt;module&gt;
+    class SortParams(BaseModel):
+app/shared/types/pagination.py:62: in SortParams
+    sort_order: str = Field(
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/pydantic/fields.py:796: in Field
+    raise PydanticUserError('`regex` is removed. use `pattern` instead', code='removed-kwargs')
+E   pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead
+E   
+E   For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs</error></testcase></testsuite></testsuites>

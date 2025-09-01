@@ -60,6 +60,122 @@ class UserWithRole(BaseModel):
         from_attributes = True
 
 
+class UserWithRoleAndCompany(BaseModel):
+    """Enhanced user schema with role information and optional company profile for admin management"""
+    id: int
+    phone: str
+    role: UserRole
+    is_verified: bool
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    role_assigned_at: datetime
+    created_by_user_id: Optional[int] = None
+    role_assigned_by: Optional[int] = None
+    
+    # Personal Profile Fields
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    bio: Optional[str] = None
+    
+    # Company Profile Fields (for sponsors)
+    sponsor_profile_id: Optional[int] = None  # Added for contest creation
+    company_name: Optional[str] = None
+    website_url: Optional[str] = None
+    contact_name: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
+    industry: Optional[str] = None
+    company_description: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+    
+    @classmethod
+    def from_user(cls, user):
+        """Create UserWithRoleAndCompany from User model"""
+        data = {
+            "id": user.id,
+            "phone": user.phone,
+            "role": user.role,
+            "is_verified": user.is_verified,
+            "created_at": user.created_at,
+            "updated_at": user.updated_at,
+            "role_assigned_at": user.role_assigned_at,
+            "created_by_user_id": user.created_by_user_id,
+            "role_assigned_by": user.role_assigned_by,
+            "full_name": user.full_name,
+            "email": user.email,
+            "bio": user.bio,
+        }
+        
+        # Add company fields if user has sponsor profile
+        if user.sponsor_profile:
+            data.update({
+                "sponsor_profile_id": user.sponsor_profile.id,  # Added for contest creation
+                "company_name": user.sponsor_profile.company_name,
+                "website_url": user.sponsor_profile.website_url,
+                "contact_name": user.sponsor_profile.contact_name,
+                "contact_email": user.sponsor_profile.contact_email,
+                "contact_phone": user.sponsor_profile.contact_phone,
+                "industry": user.sponsor_profile.industry,
+                "company_description": user.sponsor_profile.description,
+            })
+        
+        return cls(**data)
+
+
+class AdminUserCreate(BaseModel):
+    """Schema for admin creating new users"""
+    phone: str = Field(..., description="Phone number in E.164 format")
+    role: UserRole = Field(..., description="User role")
+    full_name: Optional[str] = Field(None, min_length=1, max_length=255, description="Full name")
+    email: Optional[str] = Field(None, max_length=255, description="Email address")
+    bio: Optional[str] = Field(None, max_length=1000, description="Personal bio")
+    
+    # Company fields (for sponsors)
+    company_name: Optional[str] = Field(None, max_length=255, description="Company name")
+    website_url: Optional[str] = Field(None, max_length=500, description="Company website")
+    contact_name: Optional[str] = Field(None, max_length=255, description="Contact person name")
+    contact_email: Optional[str] = Field(None, max_length=255, description="Contact email")
+    contact_phone: Optional[str] = Field(None, max_length=50, description="Contact phone")
+    industry: Optional[str] = Field(None, max_length=100, description="Industry sector")
+    company_description: Optional[str] = Field(None, description="Company description")
+    
+    @validator('phone')
+    def validate_phone(cls, v):
+        if not v.startswith('+'):
+            raise ValueError('Phone number must be in E.164 format (start with +)')
+        if len(v) < 10 or len(v) > 15:
+            raise ValueError('Phone number must be between 10 and 15 characters')
+        return v
+    
+    @validator('email', 'contact_email')
+    def validate_emails(cls, v):
+        if v and not re.match(r"[^@]+@[^@]+\.[^@]+", v):
+            raise ValueError('Invalid email format')
+        return v
+    
+    @validator('website_url')
+    def validate_urls(cls, v):
+        if v and not (v.startswith('http://') or v.startswith('https://')):
+            raise ValueError('URL must start with http:// or https://')
+        return v
+    
+    @validator('company_name')
+    def validate_company_name(cls, v):
+        if v is not None and v.strip() == "":
+            return None
+        if v and len(v.strip()) < 2:
+            raise ValueError('Company name must be at least 2 characters')
+        return v.strip() if v else v
+    
+    @validator('full_name', 'contact_name')
+    def validate_names(cls, v):
+        if v and len(v.strip()) < 1:
+            raise ValueError('Name cannot be empty')
+        return v.strip() if v else v
+
+
 # =====================================================
 # SPONSOR PROFILE SCHEMAS
 # =====================================================
@@ -133,7 +249,7 @@ class UnifiedProfileUpdate(BaseModel):
     bio: Optional[str] = Field(None, max_length=1000, description="Personal bio/description")
     
     # Company Profile Fields (only for sponsors)
-    company_name: Optional[str] = Field(None, min_length=2, max_length=255, description="Company name")
+    company_name: Optional[str] = Field(None, max_length=255, description="Company name")
     website_url: Optional[str] = Field(None, max_length=500, description="Company website")
     logo_url: Optional[str] = Field(None, max_length=500, description="Company logo URL")
     contact_name: Optional[str] = Field(None, max_length=255, description="Contact person name")
@@ -153,6 +269,15 @@ class UnifiedProfileUpdate(BaseModel):
         if v and not (v.startswith('http://') or v.startswith('https://')):
             raise ValueError('URL must start with http:// or https://')
         return v
+    
+    @validator('company_name')
+    def validate_company_name(cls, v):
+        if v is not None and v.strip() == "":
+            # Convert empty strings to None for company fields
+            return None
+        if v and len(v.strip()) < 2:
+            raise ValueError('Company name must be at least 2 characters')
+        return v.strip() if v else v
     
     @validator('full_name', 'contact_name')
     def validate_names(cls, v):

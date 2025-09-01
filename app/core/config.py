@@ -57,16 +57,38 @@ class Settings(BaseSettings):
     cloudinary_folder: str = Field(default="contestlet", description="Base folder for media uploads")
     
     # CORS
+    cors_origins: Optional[str] = Field(default=None, description="Comma-separated CORS origins")
     allow_origins: List[str] = Field(
-        default_factory=lambda: ["http://localhost:3000", "http://localhost:8000"],
+        default_factory=lambda: [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000", 
+            "http://localhost:3001",
+            "http://127.0.0.1:3001",
+            "http://localhost:3002",
+            "http://127.0.0.1:3002",
+            "http://localhost:8000"
+        ],
         description="Allowed CORS origins"
     )
     allow_credentials: bool = Field(default=True, description="Allow credentials")
     allow_methods: List[str] = Field(
-        default=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        default=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
         description="Allowed HTTP methods"
     )
-    allow_headers: List[str] = Field(default=["*"], description="Allowed headers")
+    allow_headers: List[str] = Field(
+        default=[
+            "Accept",
+            "Accept-Language", 
+            "Content-Language",
+            "Content-Type",
+            "Authorization",
+            "X-Requested-With",
+            "Origin",
+            "Access-Control-Request-Method",
+            "Access-Control-Request-Headers"
+        ], 
+        description="Allowed headers"
+    )
     
     @validator('environment')
     def validate_environment(cls, v):
@@ -74,6 +96,15 @@ class Settings(BaseSettings):
         valid_environments = {'development', 'staging', 'production'}
         if v not in valid_environments:
             raise ValueError(f'Environment must be one of: {valid_environments}')
+        return v
+    
+    @validator('allow_origins', pre=True)
+    def parse_cors_origins(cls, v, values):
+        """Parse CORS origins from environment variable if provided"""
+        cors_origins = values.get('cors_origins')
+        if cors_origins:
+            # Parse comma-separated string into list
+            return [origin.strip() for origin in cors_origins.split(',') if origin.strip()]
         return v
     
     @computed_field

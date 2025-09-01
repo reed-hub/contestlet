@@ -126,6 +126,185 @@ python3 docs/testing/test_role_system.py --validate-only
 
 ---
 
+## 🎯 **Enhanced Status System Testing**
+
+### **Status Calculation Testing**
+
+#### **Draft Status Testing**
+```python
+# Test draft contest behavior
+def test_draft_contest_visibility():
+    """Test draft contests are only visible to creator"""
+    sponsor_token = get_sponsor_token()
+    other_sponsor_token = get_other_sponsor_token()
+    
+    # Create draft contest
+    draft_contest = create_draft_contest(sponsor_token)
+    
+    # Creator can see it
+    response = get_sponsor_contests(sponsor_token)
+    assert draft_contest["id"] in [c["id"] for c in response["contests"]]
+    
+    # Other sponsor cannot see it
+    response = get_sponsor_contests(other_sponsor_token)
+    assert draft_contest["id"] not in [c["id"] for c in response["contests"]]
+    
+    # Public cannot see it
+    response = get_public_contests()
+    assert draft_contest["id"] not in [c["id"] for c in response["contests"]]
+```
+
+#### **Approval Workflow Testing**
+```python
+def test_complete_approval_workflow():
+    """Test complete sponsor → admin approval workflow"""
+    sponsor_token = get_sponsor_token()
+    admin_token = get_admin_token()
+    
+    # 1. Create draft
+    draft = create_draft_contest(sponsor_token, {
+        "name": "Test Contest",
+        "description": "Test description",
+        "start_time": "2025-01-20T10:00:00Z",
+        "end_time": "2025-01-22T23:59:59Z"
+    })
+    assert draft["status"] == "draft"
+    
+    # 2. Submit for approval
+    submission = submit_for_approval(sponsor_token, draft["id"])
+    assert submission["new_status"] == "awaiting_approval"
+    
+    # 3. Admin approves
+    approval = approve_contest(admin_token, draft["id"], {
+        "approved": True,
+        "reason": "Test approval"
+    })
+    assert approval["new_status"] in ["upcoming", "active"]
+    
+    # 4. Verify public visibility
+    public_contests = get_public_contests()
+    assert draft["id"] in [c["id"] for c in public_contests["contests"]]
+```
+
+#### **Status Transition Validation**
+```python
+def test_status_transition_permissions():
+    """Test status transition permissions"""
+    sponsor_token = get_sponsor_token()
+    admin_token = get_admin_token()
+    
+    # Create draft contest
+    draft = create_draft_contest(sponsor_token)
+    
+    # Sponsor can submit for approval
+    response = submit_for_approval(sponsor_token, draft["id"])
+    assert response["success"] == True
+    
+    # Sponsor cannot approve (should fail)
+    response = approve_contest(sponsor_token, draft["id"], {"approved": True})
+    assert response.status_code == 403
+    
+    # Admin can approve
+    response = approve_contest(admin_token, draft["id"], {"approved": True})
+    assert response["success"] == True
+```
+
+### **Time-Based Status Testing**
+
+#### **Automatic Status Transitions**
+```python
+def test_automatic_status_transitions():
+    """Test time-based status transitions"""
+    admin_token = get_admin_token()
+    
+    # Create contest that should be upcoming
+    future_contest = create_admin_contest(admin_token, {
+        "start_time": (datetime.utcnow() + timedelta(days=1)).isoformat(),
+        "end_time": (datetime.utcnow() + timedelta(days=2)).isoformat()
+    })
+    assert future_contest["status"] == "upcoming"
+    
+    # Create contest that should be active
+    active_contest = create_admin_contest(admin_token, {
+        "start_time": (datetime.utcnow() - timedelta(hours=1)).isoformat(),
+        "end_time": (datetime.utcnow() + timedelta(hours=1)).isoformat()
+    })
+    assert active_contest["status"] == "active"
+    
+    # Create contest that should be ended
+    ended_contest = create_admin_contest(admin_token, {
+        "start_time": (datetime.utcnow() - timedelta(days=2)).isoformat(),
+        "end_time": (datetime.utcnow() - timedelta(days=1)).isoformat()
+    })
+    assert ended_contest["status"] == "ended"
+```
+
+### **Bulk Operations Testing**
+
+#### **Bulk Approval Testing**
+```python
+def test_bulk_approval():
+    """Test bulk approval operations"""
+    sponsor_token = get_sponsor_token()
+    admin_token = get_admin_token()
+    
+    # Create multiple draft contests
+    drafts = []
+    for i in range(3):
+        draft = create_draft_contest(sponsor_token, {"name": f"Test Contest {i}"})
+        submit_for_approval(sponsor_token, draft["id"])
+        drafts.append(draft)
+    
+    # Bulk approve
+    contest_ids = [d["id"] for d in drafts]
+    response = bulk_approve_contests(admin_token, {
+        "contest_ids": contest_ids,
+        "approved": True,
+        "reason": "Bulk approval test"
+    })
+    
+    assert response["success_count"] == 3
+    assert response["error_count"] == 0
+    
+    # Verify all are approved
+    for contest_id in contest_ids:
+        contest = get_contest_details(contest_id)
+        assert contest["status"] in ["upcoming", "active"]
+```
+
+### **Audit Trail Testing**
+
+#### **Status Change Audit**
+```python
+def test_status_audit_trail():
+    """Test complete audit trail for status changes"""
+    sponsor_token = get_sponsor_token()
+    admin_token = get_admin_token()
+    
+    # Create and submit contest
+    draft = create_draft_contest(sponsor_token)
+    submit_for_approval(sponsor_token, draft["id"])
+    approve_contest(admin_token, draft["id"], {"approved": True})
+    
+    # Get audit trail
+    audit = get_contest_audit_trail(admin_token, draft["id"])
+    
+    # Verify audit entries
+    assert len(audit) >= 3  # Create, submit, approve
+    
+    # Check audit details
+    create_entry = next(a for a in audit if a["new_status"] == "draft")
+    assert create_entry["old_status"] is None
+    
+    submit_entry = next(a for a in audit if a["new_status"] == "awaiting_approval")
+    assert submit_entry["old_status"] == "draft"
+    
+    approve_entry = next(a for a in audit if a["new_status"] in ["upcoming", "active"])
+    assert approve_entry["old_status"] == "awaiting_approval"
+```
+
+---
+
 ## 🔒 **Security Testing**
 
 ### **Row Level Security (RLS) Testing**

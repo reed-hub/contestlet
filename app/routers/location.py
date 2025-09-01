@@ -1,286 +1,165 @@
 """
-Location API endpoints for contest geographic targeting
+Clean, refactored location API endpoints.
+Uses new clean architecture with constants, service layer, and proper error handling.
 """
 
-from fastapi import APIRouter, HTTPException, status, Depends
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, Path, Query
 from typing import Optional
-import httpx
-import asyncio
 
-from app.database.database import get_db
-from app.core.admin_auth import get_admin_user
-from app.core.dependencies import get_current_user
-from app.schemas.location import (
-    LocationValidationRequest, LocationValidationResponse,
-    GeocodeRequest, GeocodeResponse,
-    EligibilityCheckRequest, EligibilityCheckResponse,
-    ContestLocation, UserLocation, GeoCoordinates
-)
-from app.core.location_utils import (
-    validate_contest_location, 
-    check_contest_eligibility,
-    format_location_display
-)
-from app.services.geocoding_service import geocoding_service
-from app.models.contest import Contest
+from app.core.services.location_service import LocationService
+from app.core.dependencies.auth import get_admin_user, get_admin_or_sponsor_user, get_optional_user
+from app.core.dependencies.services import get_location_service
 from app.models.user import User
+from app.shared.types.responses import APIResponse
+from app.api.responses.location import (
+    LocationValidationResponse,
+    GeocodeResponse,
+    EligibilityCheckResponse,
+    StatesListResponse,
+    ContestLocationResponse
+)
+from app.schemas.location import (
+    LocationValidationRequest,
+    GeocodeRequest,
+    EligibilityCheckRequest,
+    ContestLocation
+)
+from app.shared.constants.location import LocationConstants, LocationMessages
+from app.shared.exceptions.base import ValidationException
 
 router = APIRouter(prefix="/location", tags=["location"])
-security = HTTPBearer()
+
 
 @router.post("/validate", response_model=LocationValidationResponse)
 async def validate_location(
     request: LocationValidationRequest,
-    admin_user: dict = Depends(get_admin_user),
-    db: Session = Depends(get_db)
-):
+    admin_user: User = Depends(get_admin_user),
+    location_service: LocationService = Depends(get_location_service)
+) -> LocationValidationResponse:
     """
-    🔍 Validate contest location data
-    
-    Validates location targeting configuration including:
-    - State code validation for specific_states type
-    - Radius and coordinate validation for radius type
-    - Required field validation for each location type
-    
-    **Admin Authentication Required**
+    Validate contest location data with proper error handling.
+    Clean controller with service delegation and constants.
     """
-    try:
-        location = request.location_data
-        
-        # Validate the location data
-        is_valid, errors, warnings = validate_contest_location(location)
-        
-        # If valid, return processed location with generated display text
-        processed_location = None
-        if is_valid:
-            # Ensure display_text is properly generated
-            if not location.display_text or not location.display_text.strip():
-                location.display_text = format_location_display(location)
-            processed_location = location
-        
-        return LocationValidationResponse(
-            valid=is_valid,
-            errors=errors,
-            warnings=warnings,
-            processed_location=processed_location
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Location validation failed: {str(e)}"
-        )
+    validation_result = await location_service.validate_contest_location(
+        location_data=request.location_data
+    )
+    
+    return LocationValidationResponse(
+        success=True,
+        data=validation_result,
+        message=LocationMessages.VALIDATION_SUCCESS if validation_result.valid else LocationMessages.VALIDATION_FAILED
+    )
+
 
 @router.post("/geocode", response_model=GeocodeResponse)
 async def geocode_address(
     request: GeocodeRequest,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
-):
+    current_user: User = Depends(get_admin_or_sponsor_user),
+    location_service: LocationService = Depends(get_location_service)
+) -> GeocodeResponse:
     """
-    🌍 Geocode an address to coordinates
-    
-    Uses OpenStreetMap Nominatim service to convert addresses to coordinates.
-    This is used for radius-based contest targeting.
-    
-    **Features:**
-    - Free geocoding service (no API key required)
-    - Returns formatted address and coordinates
-    - Comprehensive error handling and validation
-    
-    **Contest Creator Authentication Required** (Admin or Sponsor)
+    Geocode an address to coordinates.
+    Uses service layer with proper authentication and error handling.
     """
-    # Extract and validate JWT token
-    from app.core.auth import jwt_manager
-    
-    if not credentials:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required"
+    # Validate address length
+    if len(request.address.strip()) < LocationConstants.MIN_ADDRESS_LENGTH:
+        raise ValidationException(
+            message=LocationMessages.INVALID_ADDRESS,
+            field_errors={"address": f"Address must be at least {LocationConstants.MIN_ADDRESS_LENGTH} characters"}
         )
     
-    payload = jwt_manager.verify_token(credentials.credentials, "access")
-    if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token"
-        )
+    geocode_result = await location_service.geocode_address(request.address)
     
-    # Validate user has contest creation permissions
-    user_role = payload.get("role")
-    if user_role not in ["admin", "sponsor"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Contest creator permissions required for address verification"
-        )
-    try:
-        # Use the geocoding service for consistent handling
-        result = await geocoding_service.geocode_address(request.address)
-        
-        if result["success"]:
-            return GeocodeResponse(
-                success=True,
-                coordinates=GeoCoordinates(
-                    latitude=result["coordinates"]["latitude"],
-                    longitude=result["coordinates"]["longitude"]
-                ),
-                formatted_address=result["formatted_address"]
-            )
-        else:
-            return GeocodeResponse(
-                success=False,
-                error_message=result.get("message", "Address not found")
-            )
-    
-    except HTTPException as e:
-        # Convert HTTPException to GeocodeResponse for consistent API
-        return GeocodeResponse(
-            success=False,
-            error_message=e.detail
-        )
-    except Exception as e:
-        return GeocodeResponse(
-            success=False,
-            error_message=f"Geocoding failed: {str(e)}"
-        )
+    return GeocodeResponse(
+        success=True,
+        data=geocode_result,
+        message=LocationMessages.GEOCODING_SUCCESS if geocode_result.success else LocationMessages.GEOCODING_FAILED
+    )
+
 
 @router.post("/check-eligibility", response_model=EligibilityCheckResponse)
 async def check_eligibility(
     request: EligibilityCheckRequest,
-    db: Session = Depends(get_db)
-):
+    location_service: LocationService = Depends(get_location_service)
+) -> EligibilityCheckResponse:
     """
-    ✅ Check contest eligibility based on location
-    
-    Determines if a user is eligible for a contest based on:
-    - Contest location restrictions
-    - User's provided location data
-    
-    **Location Types Supported:**
-    - `united_states`: Open to all US residents
-    - `specific_states`: Restricted to specific states
-    - `radius`: Within specified miles of contest location
-    - `custom`: Custom restrictions (manual review)
-    
-    **No Authentication Required** (public endpoint for contest entry)
+    Check contest eligibility based on location.
+    Public endpoint with clean service delegation.
     """
-    try:
-        # Get contest from database
-        contest = db.query(Contest).filter(Contest.id == request.contest_id).first()
-        
-        if not contest:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Contest not found"
-            )
-        
-        # Build ContestLocation from contest data
-        contest_location = ContestLocation(
-            location_type=contest.location_type or "united_states",
-            selected_states=contest.selected_states,
-            radius_address=contest.radius_address,
-            radius_miles=contest.radius_miles,
-            radius_coordinates=GeoCoordinates(
-                latitude=contest.radius_latitude,
-                longitude=contest.radius_longitude
-            ) if contest.radius_latitude and contest.radius_longitude else None,
-            custom_text=contest.location if contest.location_type == "custom" else None,
-            display_text=contest.location or "Location restrictions apply"
-        )
-        
-        # Check eligibility
-        is_eligible, reason = await check_contest_eligibility(
-            contest_location, 
-            request.user_location
-        )
-        
-        return EligibilityCheckResponse(
-            eligible=is_eligible,
-            reason=reason,
-            location_requirements=format_location_display(contest_location)
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Eligibility check failed: {str(e)}"
-        )
+    eligibility_result = await location_service.check_contest_eligibility(
+        contest_id=request.contest_id,
+        user_location=request.user_location
+    )
+    
+    return EligibilityCheckResponse(
+        success=True,
+        data=eligibility_result,
+        message=LocationMessages.ELIGIBILITY_CHECKED
+    )
 
-@router.get("/states")
-async def get_valid_states():
+
+@router.get("/states", response_model=StatesListResponse)
+async def get_valid_states() -> StatesListResponse:
     """
-    📋 Get list of valid US state codes and names
-    
-    Returns all valid US state codes and their full names for use in
-    state-specific contest targeting.
-    
-    **No Authentication Required** (public reference data)
+    Get list of valid US state codes and names.
+    Clean endpoint with constants usage.
     """
-    from app.schemas.location import VALID_STATE_CODES
-    
     states = [
         {"code": code, "name": name}
-        for code, name in VALID_STATE_CODES.items()
+        for code, name in LocationConstants.VALID_STATE_CODES.items()
     ]
     
     # Sort by state name for better UX
     states.sort(key=lambda x: x["name"])
     
-    return {
+    states_data = {
         "states": states,
         "total": len(states)
     }
+    
+    return StatesListResponse(
+        success=True,
+        data=states_data,
+        message=f"Retrieved {len(states)} valid US states"
+    )
 
-@router.get("/contest/{contest_id}/location", response_model=ContestLocation)
+
+@router.get("/contest/{contest_id}/location", response_model=ContestLocationResponse)
 async def get_contest_location(
-    contest_id: int,
-    db: Session = Depends(get_db)
-):
+    contest_id: int = Path(..., gt=0, description="Contest ID"),
+    location_service: LocationService = Depends(get_location_service)
+) -> ContestLocationResponse:
     """
-    📍 Get contest location configuration
-    
-    Returns the complete location targeting configuration for a contest.
-    
-    **No Authentication Required** (public contest information)
+    Get contest location configuration.
+    Clean controller with service delegation and type safety.
     """
-    try:
-        contest = db.query(Contest).filter(Contest.id == contest_id).first()
-        
-        if not contest:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Contest not found"
-            )
-        
-        # Build ContestLocation from contest data
-        contest_location = ContestLocation(
-            location_type=contest.location_type or "united_states",
-            selected_states=contest.selected_states,
-            radius_address=contest.radius_address,
-            radius_miles=contest.radius_miles,
-            radius_coordinates=GeoCoordinates(
-                latitude=contest.radius_latitude,
-                longitude=contest.radius_longitude
-            ) if contest.radius_latitude and contest.radius_longitude else None,
-            custom_text=contest.location if contest.location_type == "custom" else None,
-            display_text=contest.location or format_location_display(ContestLocation(
-                location_type=contest.location_type or "united_states",
-                selected_states=contest.selected_states,
-                radius_miles=contest.radius_miles,
-                custom_text=contest.location
-            ))
-        )
-        
-        return contest_location
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get contest location: {str(e)}"
-        )
+    contest_location = await location_service.get_contest_location(contest_id)
+    
+    return ContestLocationResponse(
+        success=True,
+        data=contest_location,
+        message="Contest location configuration retrieved successfully"
+    )
+
+
+@router.get("/distance")
+async def calculate_distance(
+    lat1: float = Query(..., ge=LocationConstants.MIN_LATITUDE, le=LocationConstants.MAX_LATITUDE),
+    lng1: float = Query(..., ge=LocationConstants.MIN_LONGITUDE, le=LocationConstants.MAX_LONGITUDE),
+    lat2: float = Query(..., ge=LocationConstants.MIN_LATITUDE, le=LocationConstants.MAX_LATITUDE),
+    lng2: float = Query(..., ge=LocationConstants.MIN_LONGITUDE, le=LocationConstants.MAX_LONGITUDE),
+    location_service: LocationService = Depends(get_location_service)
+) -> APIResponse[dict]:
+    """
+    Calculate distance between two coordinates.
+    Clean utility endpoint with proper validation.
+    """
+    distance_result = await location_service.calculate_distance(
+        lat1=lat1, lng1=lng1, lat2=lat2, lng2=lng2
+    )
+    
+    return APIResponse(
+        success=True,
+        data=distance_result,
+        message="Distance calculated successfully"
+    )

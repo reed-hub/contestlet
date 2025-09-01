@@ -1,2 +1,1 @@
-# Core module initialization
-# Import specific modules as needed to avoid circular imports
+# Core business logic package

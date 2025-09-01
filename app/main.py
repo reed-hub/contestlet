@@ -48,7 +48,14 @@ def create_app() -> FastAPI:
         allow_credentials=settings.allow_credentials,
         allow_methods=settings.allow_methods,
         allow_headers=settings.allow_headers,
+        max_age=600,  # Cache preflight for 10 minutes
     )
+    
+    # Log CORS configuration for debugging
+    print(f"🌐 CORS Origins: {settings.allow_origins}")
+    print(f"🔒 CORS Credentials: {settings.allow_credentials}")
+    print(f"📋 CORS Methods: {settings.allow_methods}")
+    print(f"📄 CORS Headers: {settings.allow_headers}")
     
     return app
 
@@ -58,8 +65,20 @@ def auto_discover_routers() -> list:
     router_modules = []
     routers_dir = os.path.join(os.path.dirname(__file__), "routers")
     
+    # Files to exclude from auto-discovery
+    excluded_files = {
+        "sponsor_workflow_clean.py",  # Missing dependencies
+        "contests_original_backup.py",  # Backup file
+        "entries_original_backup.py",  # Backup file
+        "location_original_backup.py",  # Backup file
+        "media_original_backup.py",  # Backup file
+        "users_original_backup.py",  # Backup file
+        "auth_original_backup.py",  # Backup file
+        "admin_original_backup.py",  # Backup file
+    }
+    
     for filename in os.listdir(routers_dir):
-        if filename.endswith(".py") and not filename.startswith("__"):
+        if filename.endswith(".py") and not filename.startswith("__") and filename not in excluded_files:
             module_name = filename[:-3]
             try:
                 module = importlib.import_module(f"app.routers.{module_name}")
@@ -78,12 +97,38 @@ def setup_exception_handlers(app: FastAPI):
     @app.exception_handler(500)
     async def internal_server_error_handler(request, exc):
         """Handle internal server errors with CORS headers"""
+        origin = request.headers.get("origin", "*")
+        settings = get_settings()
+        
+        # Use specific origin if it's in allowed origins, otherwise use *
+        allowed_origin = origin if origin in settings.allow_origins else "*"
+        
         return JSONResponse(
             status_code=500,
             content={"detail": "Internal server error", "error": str(exc)},
             headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Credentials": "true"
+                "Access-Control-Allow-Origin": allowed_origin,
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Allow-Methods": ", ".join(settings.allow_methods),
+                "Access-Control-Allow-Headers": ", ".join(settings.allow_headers),
+            }
+        )
+    
+    @app.exception_handler(422)
+    async def validation_error_handler(request, exc):
+        """Handle validation errors with CORS headers"""
+        origin = request.headers.get("origin", "*")
+        settings = get_settings()
+        allowed_origin = origin if origin in settings.allow_origins else "*"
+        
+        return JSONResponse(
+            status_code=422,
+            content={"detail": "Validation error", "errors": str(exc)},
+            headers={
+                "Access-Control-Allow-Origin": allowed_origin,
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Allow-Methods": ", ".join(settings.allow_methods),
+                "Access-Control-Allow-Headers": ", ".join(settings.allow_headers),
             }
         )
 

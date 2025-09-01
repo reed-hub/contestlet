@@ -1,0 +1,497 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="16" failures="12" skipped="0" tests="31" time="3.185" timestamp="2025-08-30T07:27:40.431286" hostname="MacBook-Pro-8.local"><testcase classname="tests.integration.test_refactored_endpoints.TestRefactoredContestsEndpoints" name="test_contests_list_with_new_response_format" time="0.103"><error message="failed on setup with &quot;pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead&#10;&#10;For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs&quot;">tests/conftest.py:74: in client
+    from app.main import app
+app/main.py:182: in &lt;module&gt;
+    routers = auto_discover_routers()
+app/main.py:72: in auto_discover_routers
+    module = importlib.import_module(f"app.routers.{module_name}")
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+app/routers/__init__.py:1: in &lt;module&gt;
+    from .auth import router as auth_router
+app/routers/auth.py:18: in &lt;module&gt;
+    from app.core.dependencies.auth import get_current_user
+app/core/dependencies/auth.py:12: in &lt;module&gt;
+    from app.core.dependencies.services import get_auth_service
+app/core/dependencies/services.py:10: in &lt;module&gt;
+    from app.core.services.contest_service import ContestService
+app/core/services/contest_service.py:22: in &lt;module&gt;
+    from app.shared.types.pagination import PaginationParams, ContestFilterParams, PaginatedResult, create_paginated_result
+app/shared/types/pagination.py:57: in &lt;module&gt;
+    class SortParams(BaseModel):
+app/shared/types/pagination.py:62: in SortParams
+    sort_order: str = Field(
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/pydantic/fields.py:796: in Field
+    raise PydanticUserError('`regex` is removed. use `pattern` instead', code='removed-kwargs')
+E   pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead
+E   
+E   For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs</error></testcase><testcase classname="tests.integration.test_refactored_endpoints.TestRefactoredContestsEndpoints" name="test_contest_detail_with_service_layer" time="0.009"><error message="failed on setup with &quot;pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead&#10;&#10;For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs&quot;">tests/conftest.py:74: in client
+    from app.main import app
+app/main.py:182: in &lt;module&gt;
+    routers = auto_discover_routers()
+app/main.py:72: in auto_discover_routers
+    module = importlib.import_module(f"app.routers.{module_name}")
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+app/routers/__init__.py:1: in &lt;module&gt;
+    from .auth import router as auth_router
+app/routers/auth.py:18: in &lt;module&gt;
+    from app.core.dependencies.auth import get_current_user
+app/core/dependencies/auth.py:12: in &lt;module&gt;
+    from app.core.dependencies.services import get_auth_service
+app/core/dependencies/services.py:10: in &lt;module&gt;
+    from app.core.services.contest_service import ContestService
+app/core/services/contest_service.py:22: in &lt;module&gt;
+    from app.shared.types.pagination import PaginationParams, ContestFilterParams, PaginatedResult, create_paginated_result
+app/shared/types/pagination.py:57: in &lt;module&gt;
+    class SortParams(BaseModel):
+app/shared/types/pagination.py:62: in SortParams
+    sort_order: str = Field(
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/pydantic/fields.py:796: in Field
+    raise PydanticUserError('`regex` is removed. use `pattern` instead', code='removed-kwargs')
+E   pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead
+E   
+E   For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs</error></testcase><testcase classname="tests.integration.test_refactored_endpoints.TestRefactoredContestsEndpoints" name="test_contest_deletion_with_clean_error_handling" time="0.009"><error message="failed on setup with &quot;pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead&#10;&#10;For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs&quot;">tests/conftest.py:74: in client
+    from app.main import app
+app/main.py:182: in &lt;module&gt;
+    routers = auto_discover_routers()
+app/main.py:72: in auto_discover_routers
+    module = importlib.import_module(f"app.routers.{module_name}")
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+app/routers/__init__.py:1: in &lt;module&gt;
+    from .auth import router as auth_router
+app/routers/auth.py:18: in &lt;module&gt;
+    from app.core.dependencies.auth import get_current_user
+app/core/dependencies/auth.py:12: in &lt;module&gt;
+    from app.core.dependencies.services import get_auth_service
+app/core/dependencies/services.py:10: in &lt;module&gt;
+    from app.core.services.contest_service import ContestService
+app/core/services/contest_service.py:22: in &lt;module&gt;
+    from app.shared.types.pagination import PaginationParams, ContestFilterParams, PaginatedResult, create_paginated_result
+app/shared/types/pagination.py:57: in &lt;module&gt;
+    class SortParams(BaseModel):
+app/shared/types/pagination.py:62: in SortParams
+    sort_order: str = Field(
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/pydantic/fields.py:796: in Field
+    raise PydanticUserError('`regex` is removed. use `pattern` instead', code='removed-kwargs')
+E   pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead
+E   
+E   For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs</error></testcase><testcase classname="tests.integration.test_refactored_endpoints.TestRefactoredContestsEndpoints" name="test_contest_not_found_structured_error" time="0.009"><error message="failed on setup with &quot;pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead&#10;&#10;For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs&quot;">tests/conftest.py:74: in client
+    from app.main import app
+app/main.py:182: in &lt;module&gt;
+    routers = auto_discover_routers()
+app/main.py:72: in auto_discover_routers
+    module = importlib.import_module(f"app.routers.{module_name}")
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+app/routers/__init__.py:1: in &lt;module&gt;
+    from .auth import router as auth_router
+app/routers/auth.py:18: in &lt;module&gt;
+    from app.core.dependencies.auth import get_current_user
+app/core/dependencies/auth.py:12: in &lt;module&gt;
+    from app.core.dependencies.services import get_auth_service
+app/core/dependencies/services.py:10: in &lt;module&gt;
+    from app.core.services.contest_service import ContestService
+app/core/services/contest_service.py:22: in &lt;module&gt;
+    from app.shared.types.pagination import PaginationParams, ContestFilterParams, PaginatedResult, create_paginated_result
+app/shared/types/pagination.py:57: in &lt;module&gt;
+    class SortParams(BaseModel):
+app/shared/types/pagination.py:62: in SortParams
+    sort_order: str = Field(
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/pydantic/fields.py:796: in Field
+    raise PydanticUserError('`regex` is removed. use `pattern` instead', code='removed-kwargs')
+E   pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead
+E   
+E   For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs</error></testcase><testcase classname="tests.integration.test_refactored_endpoints.TestRefactoredAuthEndpoints" name="test_otp_request_with_constants" time="0.009"><error message="failed on setup with &quot;pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead&#10;&#10;For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs&quot;">tests/conftest.py:74: in client
+    from app.main import app
+app/main.py:182: in &lt;module&gt;
+    routers = auto_discover_routers()
+app/main.py:72: in auto_discover_routers
+    module = importlib.import_module(f"app.routers.{module_name}")
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+app/routers/__init__.py:1: in &lt;module&gt;
+    from .auth import router as auth_router
+app/routers/auth.py:18: in &lt;module&gt;
+    from app.core.dependencies.auth import get_current_user
+app/core/dependencies/auth.py:12: in &lt;module&gt;
+    from app.core.dependencies.services import get_auth_service
+app/core/dependencies/services.py:10: in &lt;module&gt;
+    from app.core.services.contest_service import ContestService
+app/core/services/contest_service.py:22: in &lt;module&gt;
+    from app.shared.types.pagination import PaginationParams, ContestFilterParams, PaginatedResult, create_paginated_result
+app/shared/types/pagination.py:57: in &lt;module&gt;
+    class SortParams(BaseModel):
+app/shared/types/pagination.py:62: in SortParams
+    sort_order: str = Field(
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/pydantic/fields.py:796: in Field
+    raise PydanticUserError('`regex` is removed. use `pattern` instead', code='removed-kwargs')
+E   pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead
+E   
+E   For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs</error></testcase><testcase classname="tests.integration.test_refactored_endpoints.TestRefactoredAuthEndpoints" name="test_otp_verification_structured_errors" time="0.012"><error message="failed on setup with &quot;pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead&#10;&#10;For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs&quot;">tests/conftest.py:74: in client
+    from app.main import app
+app/main.py:182: in &lt;module&gt;
+    routers = auto_discover_routers()
+app/main.py:72: in auto_discover_routers
+    module = importlib.import_module(f"app.routers.{module_name}")
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+app/routers/__init__.py:1: in &lt;module&gt;
+    from .auth import router as auth_router
+app/routers/auth.py:18: in &lt;module&gt;
+    from app.core.dependencies.auth import get_current_user
+app/core/dependencies/auth.py:12: in &lt;module&gt;
+    from app.core.dependencies.services import get_auth_service
+app/core/dependencies/services.py:10: in &lt;module&gt;
+    from app.core.services.contest_service import ContestService
+app/core/services/contest_service.py:22: in &lt;module&gt;
+    from app.shared.types.pagination import PaginationParams, ContestFilterParams, PaginatedResult, create_paginated_result
+app/shared/types/pagination.py:57: in &lt;module&gt;
+    class SortParams(BaseModel):
+app/shared/types/pagination.py:62: in SortParams
+    sort_order: str = Field(
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/pydantic/fields.py:796: in Field
+    raise PydanticUserError('`regex` is removed. use `pattern` instead', code='removed-kwargs')
+E   pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead
+E   
+E   For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs</error></testcase><testcase classname="tests.integration.test_refactored_endpoints.TestRefactoredAuthEndpoints" name="test_token_validation_with_service_layer" time="0.009"><error message="failed on setup with &quot;pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead&#10;&#10;For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs&quot;">tests/conftest.py:74: in client
+    from app.main import app
+app/main.py:182: in &lt;module&gt;
+    routers = auto_discover_routers()
+app/main.py:72: in auto_discover_routers
+    module = importlib.import_module(f"app.routers.{module_name}")
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+app/routers/__init__.py:1: in &lt;module&gt;
+    from .auth import router as auth_router
+app/routers/auth.py:18: in &lt;module&gt;
+    from app.core.dependencies.auth import get_current_user
+app/core/dependencies/auth.py:12: in &lt;module&gt;
+    from app.core.dependencies.services import get_auth_service
+app/core/dependencies/services.py:10: in &lt;module&gt;
+    from app.core.services.contest_service import ContestService
+app/core/services/contest_service.py:22: in &lt;module&gt;
+    from app.shared.types.pagination import PaginationParams, ContestFilterParams, PaginatedResult, create_paginated_result
+app/shared/types/pagination.py:57: in &lt;module&gt;
+    class SortParams(BaseModel):
+app/shared/types/pagination.py:62: in SortParams
+    sort_order: str = Field(
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/pydantic/fields.py:796: in Field
+    raise PydanticUserError('`regex` is removed. use `pattern` instead', code='removed-kwargs')
+E   pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead
+E   
+E   For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs</error></testcase><testcase classname="tests.integration.test_refactored_endpoints.TestRefactoredUserEndpoints" name="test_user_profile_with_type_safety" time="0.010"><error message="failed on setup with &quot;pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead&#10;&#10;For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs&quot;">tests/conftest.py:74: in client
+    from app.main import app
+app/main.py:182: in &lt;module&gt;
+    routers = auto_discover_routers()
+app/main.py:72: in auto_discover_routers
+    module = importlib.import_module(f"app.routers.{module_name}")
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+app/routers/__init__.py:1: in &lt;module&gt;
+    from .auth import router as auth_router
+app/routers/auth.py:18: in &lt;module&gt;
+    from app.core.dependencies.auth import get_current_user
+app/core/dependencies/auth.py:12: in &lt;module&gt;
+    from app.core.dependencies.services import get_auth_service
+app/core/dependencies/services.py:10: in &lt;module&gt;
+    from app.core.services.contest_service import ContestService
+app/core/services/contest_service.py:22: in &lt;module&gt;
+    from app.shared.types.pagination import PaginationParams, ContestFilterParams, PaginatedResult, create_paginated_result
+app/shared/types/pagination.py:57: in &lt;module&gt;
+    class SortParams(BaseModel):
+app/shared/types/pagination.py:62: in SortParams
+    sort_order: str = Field(
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/pydantic/fields.py:796: in Field
+    raise PydanticUserError('`regex` is removed. use `pattern` instead', code='removed-kwargs')
+E   pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead
+E   
+E   For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs</error></testcase><testcase classname="tests.integration.test_refactored_endpoints.TestRefactoredUserEndpoints" name="test_user_profile_update_validation" time="0.010"><error message="failed on setup with &quot;pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead&#10;&#10;For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs&quot;">tests/conftest.py:74: in client
+    from app.main import app
+app/main.py:182: in &lt;module&gt;
+    routers = auto_discover_routers()
+app/main.py:72: in auto_discover_routers
+    module = importlib.import_module(f"app.routers.{module_name}")
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+app/routers/__init__.py:1: in &lt;module&gt;
+    from .auth import router as auth_router
+app/routers/auth.py:18: in &lt;module&gt;
+    from app.core.dependencies.auth import get_current_user
+app/core/dependencies/auth.py:12: in &lt;module&gt;
+    from app.core.dependencies.services import get_auth_service
+app/core/dependencies/services.py:10: in &lt;module&gt;
+    from app.core.services.contest_service import ContestService
+app/core/services/contest_service.py:22: in &lt;module&gt;
+    from app.shared.types.pagination import PaginationParams, ContestFilterParams, PaginatedResult, create_paginated_result
+app/shared/types/pagination.py:57: in &lt;module&gt;
+    class SortParams(BaseModel):
+app/shared/types/pagination.py:62: in SortParams
+    sort_order: str = Field(
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/pydantic/fields.py:796: in Field
+    raise PydanticUserError('`regex` is removed. use `pattern` instead', code='removed-kwargs')
+E   pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead
+E   
+E   For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs</error></testcase><testcase classname="tests.integration.test_refactored_endpoints.TestRefactoredLocationEndpoints" name="test_location_validation_with_constants" time="0.009"><error message="failed on setup with &quot;pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead&#10;&#10;For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs&quot;">tests/conftest.py:74: in client
+    from app.main import app
+app/main.py:182: in &lt;module&gt;
+    routers = auto_discover_routers()
+app/main.py:72: in auto_discover_routers
+    module = importlib.import_module(f"app.routers.{module_name}")
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+app/routers/__init__.py:1: in &lt;module&gt;
+    from .auth import router as auth_router
+app/routers/auth.py:18: in &lt;module&gt;
+    from app.core.dependencies.auth import get_current_user
+app/core/dependencies/auth.py:12: in &lt;module&gt;
+    from app.core.dependencies.services import get_auth_service
+app/core/dependencies/services.py:10: in &lt;module&gt;
+    from app.core.services.contest_service import ContestService
+app/core/services/contest_service.py:22: in &lt;module&gt;
+    from app.shared.types.pagination import PaginationParams, ContestFilterParams, PaginatedResult, create_paginated_result
+app/shared/types/pagination.py:57: in &lt;module&gt;
+    class SortParams(BaseModel):
+app/shared/types/pagination.py:62: in SortParams
+    sort_order: str = Field(
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/pydantic/fields.py:796: in Field
+    raise PydanticUserError('`regex` is removed. use `pattern` instead', code='removed-kwargs')
+E   pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead
+E   
+E   For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs</error></testcase><testcase classname="tests.integration.test_refactored_endpoints.TestRefactoredLocationEndpoints" name="test_geocoding_with_service_layer" time="0.008"><error message="failed on setup with &quot;pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead&#10;&#10;For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs&quot;">tests/conftest.py:74: in client
+    from app.main import app
+app/main.py:182: in &lt;module&gt;
+    routers = auto_discover_routers()
+app/main.py:72: in auto_discover_routers
+    module = importlib.import_module(f"app.routers.{module_name}")
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+app/routers/__init__.py:1: in &lt;module&gt;
+    from .auth import router as auth_router
+app/routers/auth.py:18: in &lt;module&gt;
+    from app.core.dependencies.auth import get_current_user
+app/core/dependencies/auth.py:12: in &lt;module&gt;
+    from app.core.dependencies.services import get_auth_service
+app/core/dependencies/services.py:10: in &lt;module&gt;
+    from app.core.services.contest_service import ContestService
+app/core/services/contest_service.py:22: in &lt;module&gt;
+    from app.shared.types.pagination import PaginationParams, ContestFilterParams, PaginatedResult, create_paginated_result
+app/shared/types/pagination.py:57: in &lt;module&gt;
+    class SortParams(BaseModel):
+app/shared/types/pagination.py:62: in SortParams
+    sort_order: str = Field(
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/pydantic/fields.py:796: in Field
+    raise PydanticUserError('`regex` is removed. use `pattern` instead', code='removed-kwargs')
+E   pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead
+E   
+E   For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs</error></testcase><testcase classname="tests.integration.test_refactored_endpoints.TestRefactoredMediaEndpoints" name="test_media_upload_validation_with_constants" time="0.008"><error message="failed on setup with &quot;pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead&#10;&#10;For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs&quot;">tests/conftest.py:74: in client
+    from app.main import app
+app/main.py:182: in &lt;module&gt;
+    routers = auto_discover_routers()
+app/main.py:72: in auto_discover_routers
+    module = importlib.import_module(f"app.routers.{module_name}")
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+app/routers/__init__.py:1: in &lt;module&gt;
+    from .auth import router as auth_router
+app/routers/auth.py:18: in &lt;module&gt;
+    from app.core.dependencies.auth import get_current_user
+app/core/dependencies/auth.py:12: in &lt;module&gt;
+    from app.core.dependencies.services import get_auth_service
+app/core/dependencies/services.py:10: in &lt;module&gt;
+    from app.core.services.contest_service import ContestService
+app/core/services/contest_service.py:22: in &lt;module&gt;
+    from app.shared.types.pagination import PaginationParams, ContestFilterParams, PaginatedResult, create_paginated_result
+app/shared/types/pagination.py:57: in &lt;module&gt;
+    class SortParams(BaseModel):
+app/shared/types/pagination.py:62: in SortParams
+    sort_order: str = Field(
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/pydantic/fields.py:796: in Field
+    raise PydanticUserError('`regex` is removed. use `pattern` instead', code='removed-kwargs')
+E   pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead
+E   
+E   For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs</error></testcase><testcase classname="tests.integration.test_refactored_endpoints.TestRefactoredMediaEndpoints" name="test_media_service_health_check" time="0.008"><error message="failed on setup with &quot;pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead&#10;&#10;For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs&quot;">tests/conftest.py:74: in client
+    from app.main import app
+app/main.py:182: in &lt;module&gt;
+    routers = auto_discover_routers()
+app/main.py:72: in auto_discover_routers
+    module = importlib.import_module(f"app.routers.{module_name}")
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+app/routers/__init__.py:1: in &lt;module&gt;
+    from .auth import router as auth_router
+app/routers/auth.py:18: in &lt;module&gt;
+    from app.core.dependencies.auth import get_current_user
+app/core/dependencies/auth.py:12: in &lt;module&gt;
+    from app.core.dependencies.services import get_auth_service
+app/core/dependencies/services.py:10: in &lt;module&gt;
+    from app.core.services.contest_service import ContestService
+app/core/services/contest_service.py:22: in &lt;module&gt;
+    from app.shared.types.pagination import PaginationParams, ContestFilterParams, PaginatedResult, create_paginated_result
+app/shared/types/pagination.py:57: in &lt;module&gt;
+    class SortParams(BaseModel):
+app/shared/types/pagination.py:62: in SortParams
+    sort_order: str = Field(
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/pydantic/fields.py:796: in Field
+    raise PydanticUserError('`regex` is removed. use `pattern` instead', code='removed-kwargs')
+E   pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead
+E   
+E   For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs</error></testcase><testcase classname="tests.integration.test_refactored_endpoints.TestCleanArchitectureCompliance" name="test_consistent_response_format" time="0.008"><error message="failed on setup with &quot;pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead&#10;&#10;For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs&quot;">tests/conftest.py:74: in client
+    from app.main import app
+app/main.py:182: in &lt;module&gt;
+    routers = auto_discover_routers()
+app/main.py:72: in auto_discover_routers
+    module = importlib.import_module(f"app.routers.{module_name}")
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+app/routers/__init__.py:1: in &lt;module&gt;
+    from .auth import router as auth_router
+app/routers/auth.py:18: in &lt;module&gt;
+    from app.core.dependencies.auth import get_current_user
+app/core/dependencies/auth.py:12: in &lt;module&gt;
+    from app.core.dependencies.services import get_auth_service
+app/core/dependencies/services.py:10: in &lt;module&gt;
+    from app.core.services.contest_service import ContestService
+app/core/services/contest_service.py:22: in &lt;module&gt;
+    from app.shared.types.pagination import PaginationParams, ContestFilterParams, PaginatedResult, create_paginated_result
+app/shared/types/pagination.py:57: in &lt;module&gt;
+    class SortParams(BaseModel):
+app/shared/types/pagination.py:62: in SortParams
+    sort_order: str = Field(
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/pydantic/fields.py:796: in Field
+    raise PydanticUserError('`regex` is removed. use `pattern` instead', code='removed-kwargs')
+E   pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead
+E   
+E   For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs</error></testcase><testcase classname="tests.integration.test_refactored_endpoints.TestCleanArchitectureCompliance" name="test_error_response_consistency" time="0.008"><error message="failed on setup with &quot;pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead&#10;&#10;For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs&quot;">tests/conftest.py:74: in client
+    from app.main import app
+app/main.py:182: in &lt;module&gt;
+    routers = auto_discover_routers()
+app/main.py:72: in auto_discover_routers
+    module = importlib.import_module(f"app.routers.{module_name}")
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+app/routers/__init__.py:1: in &lt;module&gt;
+    from .auth import router as auth_router
+app/routers/auth.py:18: in &lt;module&gt;
+    from app.core.dependencies.auth import get_current_user
+app/core/dependencies/auth.py:12: in &lt;module&gt;
+    from app.core.dependencies.services import get_auth_service
+app/core/dependencies/services.py:10: in &lt;module&gt;
+    from app.core.services.contest_service import ContestService
+app/core/services/contest_service.py:22: in &lt;module&gt;
+    from app.shared.types.pagination import PaginationParams, ContestFilterParams, PaginatedResult, create_paginated_result
+app/shared/types/pagination.py:57: in &lt;module&gt;
+    class SortParams(BaseModel):
+app/shared/types/pagination.py:62: in SortParams
+    sort_order: str = Field(
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/pydantic/fields.py:796: in Field
+    raise PydanticUserError('`regex` is removed. use `pattern` instead', code='removed-kwargs')
+E   pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead
+E   
+E   For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs</error></testcase><testcase classname="tests.integration.test_refactored_endpoints.TestCleanArchitectureCompliance" name="test_authentication_consistency" time="0.008"><error message="failed on setup with &quot;pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead&#10;&#10;For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs&quot;">tests/conftest.py:74: in client
+    from app.main import app
+app/main.py:182: in &lt;module&gt;
+    routers = auto_discover_routers()
+app/main.py:72: in auto_discover_routers
+    module = importlib.import_module(f"app.routers.{module_name}")
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+app/routers/__init__.py:1: in &lt;module&gt;
+    from .auth import router as auth_router
+app/routers/auth.py:18: in &lt;module&gt;
+    from app.core.dependencies.auth import get_current_user
+app/core/dependencies/auth.py:12: in &lt;module&gt;
+    from app.core.dependencies.services import get_auth_service
+app/core/dependencies/services.py:10: in &lt;module&gt;
+    from app.core.services.contest_service import ContestService
+app/core/services/contest_service.py:22: in &lt;module&gt;
+    from app.shared.types.pagination import PaginationParams, ContestFilterParams, PaginatedResult, create_paginated_result
+app/shared/types/pagination.py:57: in &lt;module&gt;
+    class SortParams(BaseModel):
+app/shared/types/pagination.py:62: in SortParams
+    sort_order: str = Field(
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/pydantic/fields.py:796: in Field
+    raise PydanticUserError('`regex` is removed. use `pattern` instead', code='removed-kwargs')
+E   pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead
+E   
+E   For further information visit https://errors.pydantic.dev/2.5/u/removed-kwargs</error></testcase><testcase classname="tests.integration.test_service_layer.TestContestServiceIntegration" name="test_create_draft_contest_integration" time="0.028"><failure message="AttributeError: 'dict' object has no attribute 'name'">tests/integration/test_service_layer.py:53: in test_create_draft_contest_integration
+    contest = contest_service.create_draft_contest(contest_data, sponsor.id)
+app/services/contest_service.py:153: in create_draft_contest
+    self._validate_draft_contest_data(contest_data)
+app/services/contest_service.py:845: in _validate_draft_contest_data
+    if not contest_data.name or len(contest_data.name.strip()) &lt; 3:
+E   AttributeError: 'dict' object has no attribute 'name'</failure></testcase><testcase classname="tests.integration.test_service_layer.TestContestServiceIntegration" name="test_contest_submission_workflow" time="0.007"><failure message="AttributeError: 'dict' object has no attribute 'name'">tests/integration/test_service_layer.py:103: in test_contest_submission_workflow
+    contest = contest_service.create_draft_contest(contest_data, sponsor.id)
+app/services/contest_service.py:153: in create_draft_contest
+    self._validate_draft_contest_data(contest_data)
+app/services/contest_service.py:845: in _validate_draft_contest_data
+    if not contest_data.name or len(contest_data.name.strip()) &lt; 3:
+E   AttributeError: 'dict' object has no attribute 'name'</failure></testcase><testcase classname="tests.integration.test_service_layer.TestContestServiceIntegration" name="test_contest_rejection_workflow" time="0.006"><failure message="AttributeError: 'dict' object has no attribute 'name'">tests/integration/test_service_layer.py:161: in test_contest_rejection_workflow
+    contest = contest_service.create_draft_contest(contest_data, sponsor.id)
+app/services/contest_service.py:153: in create_draft_contest
+    self._validate_draft_contest_data(contest_data)
+app/services/contest_service.py:845: in _validate_draft_contest_data
+    if not contest_data.name or len(contest_data.name.strip()) &lt; 3:
+E   AttributeError: 'dict' object has no attribute 'name'</failure></testcase><testcase classname="tests.integration.test_service_layer.TestContestServiceIntegration" name="test_contest_lifecycle_management" time="0.006"><failure message="AttributeError: 'dict' object has no attribute 'name'">tests/integration/test_service_layer.py:221: in test_contest_lifecycle_management
+    contest = contest_service.create_draft_contest(contest_data, sponsor.id)
+app/services/contest_service.py:153: in create_draft_contest
+    self._validate_draft_contest_data(contest_data)
+app/services/contest_service.py:845: in _validate_draft_contest_data
+    if not contest_data.name or len(contest_data.name.strip()) &lt; 3:
+E   AttributeError: 'dict' object has no attribute 'name'</failure></testcase><testcase classname="tests.integration.test_service_layer.TestContestServiceIntegration" name="test_bulk_contest_operations" time="0.006"><failure message="AttributeError: 'dict' object has no attribute 'name'">tests/integration/test_service_layer.py:293: in test_bulk_contest_operations
+    contest = contest_service.create_draft_contest(contest_data, sponsor.id)
+app/services/contest_service.py:153: in create_draft_contest
+    self._validate_draft_contest_data(contest_data)
+app/services/contest_service.py:845: in _validate_draft_contest_data
+    if not contest_data.name or len(contest_data.name.strip()) &lt; 3:
+E   AttributeError: 'dict' object has no attribute 'name'</failure></testcase><testcase classname="tests.integration.test_service_layer.TestNotificationServiceIntegration" name="test_contest_approval_notification" time="0.006"><failure message="AttributeError: 'dict' object has no attribute 'name'">tests/integration/test_service_layer.py:356: in test_contest_approval_notification
+    contest = contest_service.create_draft_contest(contest_data, sponsor.id)
+app/services/contest_service.py:153: in create_draft_contest
+    self._validate_draft_contest_data(contest_data)
+app/services/contest_service.py:845: in _validate_draft_contest_data
+    if not contest_data.name or len(contest_data.name.strip()) &lt; 3:
+E   AttributeError: 'dict' object has no attribute 'name'</failure></testcase><testcase classname="tests.integration.test_service_layer.TestNotificationServiceIntegration" name="test_contest_rejection_notification" time="0.006"><failure message="AttributeError: 'dict' object has no attribute 'name'">tests/integration/test_service_layer.py:414: in test_contest_rejection_notification
+    contest = contest_service.create_draft_contest(contest_data, sponsor.id)
+app/services/contest_service.py:153: in create_draft_contest
+    self._validate_draft_contest_data(contest_data)
+app/services/contest_service.py:845: in _validate_draft_contest_data
+    if not contest_data.name or len(contest_data.name.strip()) &lt; 3:
+E   AttributeError: 'dict' object has no attribute 'name'</failure></testcase><testcase classname="tests.integration.test_service_layer.TestAdminServiceIntegration" name="test_admin_dashboard_data_aggregation" time="0.012"><failure message="TypeError: 'is_valid' is an invalid keyword argument for Entry">tests/integration/test_service_layer.py:477: in test_admin_dashboard_data_aggregation
+    entry1 = Entry(contest_id=contest.id, user_id=user1.id, is_valid=True)
+&lt;string&gt;:4: in __init__
+    ???
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/sqlalchemy/orm/state.py:566: in _initialize_instance
+    with util.safe_reraise():
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/sqlalchemy/util/langhelpers.py:146: in __exit__
+    raise exc_value.with_traceback(exc_tb)
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/sqlalchemy/orm/state.py:564: in _initialize_instance
+    manager.original_init(*mixed[1:], **kwargs)
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/sqlalchemy/orm/decl_base.py:2142: in _declarative_constructor
+    raise TypeError(
+E   TypeError: 'is_valid' is an invalid keyword argument for Entry</failure></testcase><testcase classname="tests.integration.test_service_layer.TestAdminServiceIntegration" name="test_admin_approval_queue_management" time="0.007"><failure message="AttributeError: 'dict' object has no attribute 'name'">tests/integration/test_service_layer.py:535: in test_admin_approval_queue_management
+    contest = contest_service.create_draft_contest(contest_data, sponsor.id)
+app/services/contest_service.py:153: in create_draft_contest
+    self._validate_draft_contest_data(contest_data)
+app/services/contest_service.py:845: in _validate_draft_contest_data
+    if not contest_data.name or len(contest_data.name.strip()) &lt; 3:
+E   AttributeError: 'dict' object has no attribute 'name'</failure></testcase><testcase classname="tests.integration.test_service_layer.TestAdminServiceIntegration" name="test_admin_user_management" time="0.006"><failure message="TypeError: 'company_name' is an invalid keyword argument for User">tests/integration/test_service_layer.py:565: in test_admin_user_management
+    sponsor = User(phone="+15551234567", role="sponsor", is_verified=True, company_name="Test Company")
+&lt;string&gt;:4: in __init__
+    ???
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/sqlalchemy/orm/state.py:566: in _initialize_instance
+    with util.safe_reraise():
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/sqlalchemy/util/langhelpers.py:146: in __exit__
+    raise exc_value.with_traceback(exc_tb)
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/sqlalchemy/orm/state.py:564: in _initialize_instance
+    manager.original_init(*mixed[1:], **kwargs)
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/sqlalchemy/orm/decl_base.py:2142: in _declarative_constructor
+    raise TypeError(
+E   TypeError: 'company_name' is an invalid keyword argument for User</failure></testcase><testcase classname="tests.integration.test_service_layer.TestServiceLayerErrorHandling" name="test_contest_service_error_handling" time="0.015" /><testcase classname="tests.integration.test_service_layer.TestServiceLayerErrorHandling" name="test_admin_service_error_handling" time="0.006"><failure message="AttributeError: 'AdminService' object has no attribute 'bulk_approve_contests'">tests/integration/test_service_layer.py:657: in test_admin_service_error_handling
+    results = admin_service.bulk_approve_contests(bulk_data, 1)
+E   AttributeError: 'AdminService' object has no attribute 'bulk_approve_contests'</failure></testcase><testcase classname="tests.integration.test_service_layer.TestServiceLayerErrorHandling" name="test_service_transaction_rollback" time="0.010" /><testcase classname="tests.integration.test_service_layer.TestServiceLayerPerformance" name="test_bulk_operations_performance" time="0.007"><failure message="AttributeError: 'dict' object has no attribute 'name'">tests/integration/test_service_layer.py:742: in test_bulk_operations_performance
+    contest = contest_service.create_draft_contest(contest_data, sponsor.id)
+app/services/contest_service.py:153: in create_draft_contest
+    self._validate_draft_contest_data(contest_data)
+app/services/contest_service.py:845: in _validate_draft_contest_data
+    if not contest_data.name or len(contest_data.name.strip()) &lt; 3:
+E   AttributeError: 'dict' object has no attribute 'name'</failure></testcase><testcase classname="tests.integration.test_service_layer.TestServiceLayerPerformance" name="test_database_query_optimization" time="0.029" /></testsuite></testsuites>

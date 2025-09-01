@@ -1,18 +1,19 @@
 # 🗑️ Unified Contest Deletion API - Frontend Integration Guide
 
-**Status:** ✅ IMPLEMENTED & TESTED  
-**Version:** 1.0  
-**Date:** December 19, 2024
+**Status:** ✅ IMPLEMENTED & TESTED - Enhanced Status System Compatible  
+**Version:** 2.0  
+**Date:** January 20, 2025
 
 ---
 
 ## 🎯 **Overview**
 
-The new unified contest deletion API eliminates complex frontend protection logic and provides a single, robust endpoint for all contest deletions with built-in security and validation.
+The unified contest deletion API eliminates complex frontend protection logic and provides a single, robust endpoint for all contest deletions with built-in security and validation. **Now fully integrated with the Enhanced Contest Status System** supporting 8 distinct contest states with intelligent protection rules.
 
 ### **Key Benefits**
 - ✅ **90% less frontend code** - no more complex protection logic
 - ✅ **Single source of truth** - all rules enforced in backend
+- ✅ **Enhanced Status System** - supports all 8 contest states intelligently
 - ✅ **Consistent behavior** - same logic across all pages
 - ✅ **Better error handling** - clear, actionable error messages
 - ✅ **No more CORS/500 errors** - fully tested and operational
@@ -68,8 +69,13 @@ Authorization: Bearer {jwt_token}
     "start_time": "2025-08-27T06:34:00",
     "end_time": "2025-09-25T06:34:00",
     "status": "active",
+    "enhanced_status": "active",
     "is_complete": false,
-    "winner_selected": null
+    "winner_selected": null,
+    "is_draft": false,
+    "is_awaiting_approval": false,
+    "is_rejected": false,
+    "is_published": true
   }
 }
 ```
@@ -100,18 +106,21 @@ Authorization: Bearer {jwt_token}
 
 ## 🔒 **Protection Rules**
 
-The backend automatically enforces these rules:
+The backend automatically enforces these rules based on the **Enhanced Contest Status System**:
 
 ### **🚫 CANNOT DELETE:**
-1. **Active contests** - currently accepting entries (`now >= start_time && now <= end_time`)
+1. **Active contests** - currently accepting entries (`status = "active"`)
 2. **Contests with entries** - any contest with `entry_count > 0`
-3. **Complete contests** - contests with `winner_selected = true`
+3. **Complete contests** - contests with `status = "complete"` or `winner_selected = true`
 4. **Permission denied** - sponsors trying to delete others' contests
 
 ### **✅ CAN DELETE:**
-1. **Upcoming contests** - haven't started yet (`now < start_time`) with no entries
-2. **Ended contests** - past end time (`now > end_time`) with no entries
-3. **Draft contests** - never activated, no entries
+1. **Draft contests** - `status = "draft"` with no entries
+2. **Rejected contests** - `status = "rejected"` with no entries  
+3. **Awaiting approval contests** - `status = "awaiting_approval"` with no entries
+4. **Upcoming contests** - `status = "upcoming"` with no entries
+5. **Ended contests** - `status = "ended"` with no entries
+6. **Cancelled contests** - `status = "cancelled"` with no entries
 
 ### **🔑 Permission Matrix:**
 | Role | Can Delete |
@@ -119,6 +128,49 @@ The backend automatically enforces these rules:
 | **Admin** | Any contest (subject to protection rules) |
 | **Sponsor** | Only their own contests (subject to protection rules) |
 | **User** | Cannot delete contests |
+
+---
+
+## 🎯 **Enhanced Contest Status System Integration**
+
+The deletion API is fully integrated with the **Enhanced Contest Status System** that provides 8 distinct states:
+
+### **Status States & Deletion Rules**
+
+| Status | Description | Can Delete? | Notes |
+|--------|-------------|-------------|-------|
+| `draft` | Sponsor working copy | ✅ Yes (if no entries) | Sponsors can delete their drafts |
+| `awaiting_approval` | Submitted for admin review | ✅ Yes (if no entries) | Can be deleted before approval |
+| `rejected` | Admin rejected with feedback | ✅ Yes (if no entries) | Sponsors can delete to start over |
+| `upcoming` | Approved, scheduled for future | ✅ Yes (if no entries) | Safe to delete before contest starts |
+| `active` | Currently accepting entries | ❌ **No** | **Protected** - contest is live |
+| `ended` | Time expired, no winner selected | ✅ Yes (if no entries) | Can clean up ended contests |
+| `complete` | Winner selected and announced | ❌ **No** | **Protected** - archived contest |
+| `cancelled` | Administratively cancelled | ✅ Yes (if no entries) | Can clean up cancelled contests |
+
+### **Status-Based Protection Logic**
+
+The backend uses the enhanced status system to determine deletion eligibility:
+
+```python
+# Backend protection logic (for reference)
+def can_delete_contest(status: str, user_role: str, is_creator: bool, has_entries: bool) -> bool:
+    # Cannot delete contests with entries (universal rule)
+    if has_entries:
+        return False
+    
+    # Cannot delete active or complete contests (protection rule)
+    if status in ["active", "complete"]:
+        return False
+    
+    # Role-based permissions
+    if user_role == "admin":
+        return True  # Admins can delete any non-protected contest
+    elif user_role == "sponsor" and is_creator:
+        return True  # Sponsors can delete their own non-protected contests
+    
+    return False
+```
 
 ---
 
@@ -350,14 +402,46 @@ const showDeletionToast = (type: 'success' | 'warning' | 'error', message: strin
 
 ### **Test Scenarios**
 ```typescript
-// Test suite for deletion functionality
-describe('Contest Deletion', () => {
+// Test suite for deletion functionality with Enhanced Status System
+describe('Contest Deletion - Enhanced Status System', () => {
+  // ✅ Deletable statuses (without entries)
+  test('should delete draft contest', async () => {
+    const response = await api.contests.delete(draftContestId);
+    expect(response.success).toBe(true);
+    expect(response.cleanup_summary).toBeDefined();
+  });
+  
+  test('should delete rejected contest', async () => {
+    const response = await api.contests.delete(rejectedContestId);
+    expect(response.success).toBe(true);
+    expect(response.cleanup_summary).toBeDefined();
+  });
+  
+  test('should delete awaiting approval contest', async () => {
+    const response = await api.contests.delete(awaitingApprovalContestId);
+    expect(response.success).toBe(true);
+    expect(response.cleanup_summary).toBeDefined();
+  });
+  
   test('should delete upcoming contest with no entries', async () => {
     const response = await api.contests.delete(upcomingContestId);
     expect(response.success).toBe(true);
     expect(response.cleanup_summary).toBeDefined();
   });
   
+  test('should delete ended contest with no entries', async () => {
+    const response = await api.contests.delete(endedContestId);
+    expect(response.success).toBe(true);
+    expect(response.cleanup_summary).toBeDefined();
+  });
+  
+  test('should delete cancelled contest with no entries', async () => {
+    const response = await api.contests.delete(cancelledContestId);
+    expect(response.success).toBe(true);
+    expect(response.cleanup_summary).toBeDefined();
+  });
+  
+  // ❌ Protected statuses
   test('should block deletion of active contest', async () => {
     try {
       await api.contests.delete(activeContestId);
@@ -365,9 +449,34 @@ describe('Contest Deletion', () => {
     } catch (error) {
       expect(error.data.error).toBe('CONTEST_PROTECTED');
       expect(error.data.protection_reason).toBe('active_contest');
+      expect(error.data.details.status).toBe('active');
     }
   });
   
+  test('should block deletion of complete contest', async () => {
+    try {
+      await api.contests.delete(completeContestId);
+      fail('Should have thrown error');
+    } catch (error) {
+      expect(error.data.error).toBe('CONTEST_PROTECTED');
+      expect(error.data.protection_reason).toBe('contest_complete');
+      expect(error.data.details.status).toBe('complete');
+    }
+  });
+  
+  // Entry protection (applies to all statuses)
+  test('should block deletion of contest with entries', async () => {
+    try {
+      await api.contests.delete(contestWithEntriesId);
+      fail('Should have thrown error');
+    } catch (error) {
+      expect(error.data.error).toBe('CONTEST_PROTECTED');
+      expect(error.data.protection_reason).toBe('has_entries');
+      expect(error.data.details.entry_count).toBeGreaterThan(0);
+    }
+  });
+  
+  // Permission tests
   test('should block sponsor from deleting others contests', async () => {
     try {
       await api.contests.delete(otherSponsorContestId);
@@ -379,13 +488,31 @@ describe('Contest Deletion', () => {
 });
 ```
 
-### **Manual Testing Checklist**
-- [ ] **Success Case**: Delete upcoming contest with no entries
-- [ ] **Active Contest**: Try to delete active contest (should show protection message)
-- [ ] **Contest with Entries**: Try to delete contest with entries (should show entry count)
-- [ ] **Permission Test**: Sponsor tries to delete other's contest (should show permission error)
+### **Manual Testing Checklist - Enhanced Status System**
+
+#### **✅ Successful Deletions (No Entries)**
+- [ ] **Draft Contest**: Delete draft contest (should succeed)
+- [ ] **Rejected Contest**: Delete rejected contest (should succeed)
+- [ ] **Awaiting Approval**: Delete awaiting approval contest (should succeed)
+- [ ] **Upcoming Contest**: Delete upcoming contest with no entries (should succeed)
+- [ ] **Ended Contest**: Delete ended contest with no entries (should succeed)
+- [ ] **Cancelled Contest**: Delete cancelled contest with no entries (should succeed)
+
+#### **❌ Protected Deletions (Should Fail)**
+- [ ] **Active Contest**: Try to delete active contest (should show "active_contest" protection)
+- [ ] **Complete Contest**: Try to delete complete contest (should show "contest_complete" protection)
+- [ ] **Contest with Entries**: Try to delete any contest with entries (should show "has_entries" protection)
+
+#### **🔒 Permission Tests**
+- [ ] **Sponsor Own Contest**: Sponsor deletes their own deletable contest (should succeed)
+- [ ] **Sponsor Other Contest**: Sponsor tries to delete other's contest (should show permission error)
+- [ ] **Admin Any Contest**: Admin deletes any deletable contest (should succeed)
+- [ ] **User Role**: Regular user tries to delete contest (should show permission error)
+
+#### **🚫 Error Cases**
 - [ ] **Not Found**: Try to delete non-existent contest (should show not found)
 - [ ] **No Auth**: Try to delete without token (should show auth error)
+- [ ] **Invalid Token**: Try to delete with invalid token (should show auth error)
 
 ---
 
@@ -466,10 +593,10 @@ After implementing this API:
 - **Frontend protection logic** should be completely removed
 - **Error response format** has changed - update error handling
 
-### **Backward Compatibility**
-- New endpoint works alongside old ones during transition
-- Gradual migration recommended
-- Old endpoints will be removed in future version
+### **System Integration**
+- Unified endpoint provides consistent deletion behavior
+- Enhanced status system integration ensures proper protection
+- Clean API design without legacy compatibility concerns
 
 ### **Security**
 - All deletions are logged with user ID and timestamp

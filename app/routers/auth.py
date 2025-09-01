@@ -1,6 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Header
+"""
+Clean, refactored authentication API endpoints.
+Uses new clean architecture with proper error handling and constants.
+"""
+
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from datetime import datetime
+
 from app.database.database import get_db
 from app.models.user import User
 from app.schemas.auth import PhoneVerificationRequest, TokenResponse, UserMeResponse
@@ -9,55 +15,68 @@ from app.core.auth import create_access_token, create_user_token, verify_token
 from app.core.twilio_verify_service import twilio_verify_service
 from app.core.rate_limiter import rate_limiter
 from app.core.config import get_settings
+from app.core.dependencies.auth import get_current_user
+from app.shared.exceptions.base import (
+    RateLimitException, 
+    AuthenticationException, 
+    ValidationException,
+    ErrorCode
+)
+from app.shared.constants.auth import AuthConstants, AuthMessages, AuthErrors
+from app.shared.types.responses import APIResponse
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
-# normalize_phone function removed - using Twilio Verify's phone validation instead
-
-
-@router.post("/request-otp", response_model=OTPResponse)
+@router.post("/request-otp", response_model=APIResponse[OTPResponse])
 async def request_otp(
     otp_request: OTPRequest,
     db: Session = Depends(get_db)
-):
+) -> APIResponse[OTPResponse]:
     """
     Request OTP code for phone verification using Twilio Verify API.
-    Includes rate limiting to prevent abuse.
+    Uses centralized rate limiting and error handling.
     """
-    # Check rate limiting (using original phone for consistency)
+    # Check rate limiting with centralized constants
     rate_limit_key = f"otp_request:{otp_request.phone}"
     if not rate_limiter.is_allowed(rate_limit_key):
         remaining_time = rate_limiter.get_reset_time(rate_limit_key)
-        retry_after = int(remaining_time - datetime.now().timestamp()) if remaining_time else 300
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many OTP requests. Please try again later.",
-            headers={"Retry-After": str(retry_after)}
+        retry_after = int(remaining_time - datetime.now().timestamp()) if remaining_time else AuthConstants.OTP_RETRY_AFTER_SECONDS
+        
+        raise RateLimitException(
+            message=AuthMessages.OTP_RATE_LIMITED,
+            retry_after=retry_after
         )
     
     # Send verification using Twilio Verify API
     success, message = await twilio_verify_service.send_verification(otp_request.phone)
     
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=message
+        raise ValidationException(
+            message=message or AuthMessages.PHONE_VALIDATION_FAILED,
+            field_errors={"phone": message}
         )
     
-    return OTPResponse(
-        message=message,
+    otp_response = OTPResponse(
+        message=message or AuthMessages.OTP_SENT_SUCCESS,
         retry_after=None
+    )
+    
+    return APIResponse(
+        success=True,
+        data=otp_response,
+        message=AuthMessages.OTP_SENT_SUCCESS
     )
 
 
-@router.post("/verify-otp", response_model=OTPVerificationResponse)
+@router.post("/verify-otp", response_model=APIResponse[OTPVerificationResponse])
 async def verify_otp(
     otp_verification: OTPVerification,
     db: Session = Depends(get_db)
-):
+) -> APIResponse[OTPVerificationResponse]:
     """
     Verify OTP code using Twilio Verify API and return JWT token on success.
+    Uses structured error handling and centralized user creation logic.
     """
     # Check verification using Twilio Verify API
     success, message = await twilio_verify_service.check_verification(
@@ -66,26 +85,26 @@ async def verify_otp(
     )
     
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=message
+        raise AuthenticationException(
+            error_code=ErrorCode.INVALID_CREDENTIALS,
+            message=message or AuthMessages.OTP_INVALID
         )
     
-    # Verification successful - get the validated phone number
+    # Validation successful - get the validated phone number
     is_valid, formatted_phone, error = twilio_verify_service.validate_phone_number(otp_verification.phone)
     if not is_valid:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=error or "Phone number validation failed"
+        raise ValidationException(
+            message=error or AuthMessages.PHONE_VALIDATION_FAILED,
+            field_errors={"phone": error}
         )
     
     # Get or create user with the formatted phone number
     user = db.query(User).filter(User.phone == formatted_phone).first()
     if not user:
-        # Create new user with default role
+        # Create new user with default role using constants
         settings = get_settings()
         admin_phones = settings.phone_set
-        default_role = "admin" if formatted_phone in admin_phones else "user"
+        default_role = AuthConstants.ADMIN_ROLE if formatted_phone in admin_phones else AuthConstants.DEFAULT_USER_ROLE
         
         user = User(
             phone=formatted_phone,
@@ -108,97 +127,95 @@ async def verify_otp(
         role=user.role
     )
     
-    return OTPVerificationResponse(
+    verification_response = OTPVerificationResponse(
         success=True,
-        message="Phone verified successfully",
+        message=AuthMessages.PHONE_VERIFIED_SUCCESS,
         access_token=access_token,
         token_type="bearer",
         user_id=user.id
     )
+    
+    return APIResponse(
+        success=True,
+        data=verification_response,
+        message=AuthMessages.LOGIN_SUCCESS
+    )
 
 
-@router.post("/verify-phone", response_model=TokenResponse)
+@router.post("/verify-phone", response_model=APIResponse[TokenResponse])
 async def verify_phone(
     phone_data: PhoneVerificationRequest,
     db: Session = Depends(get_db)
-):
+) -> APIResponse[TokenResponse]:
     """
-    Legacy endpoint: Verify phone number and return JWT token.
-    DEPRECATED: Use request-otp and verify-otp instead.
+    Legacy phone verification endpoint.
+    Maintained for backward compatibility with improved error handling.
     """
-    # Validate phone number using the same validation as Twilio Verify
+    # Validate phone number format
     is_valid, formatted_phone, error = twilio_verify_service.validate_phone_number(phone_data.phone)
     if not is_valid:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=error or "Invalid phone number format"
+        raise ValidationException(
+            message=AuthMessages.PHONE_INVALID_FORMAT,
+            field_errors={"phone": error}
         )
     
-    # Check if user exists, create if not
+    # Check if user exists and is verified
     user = db.query(User).filter(User.phone == formatted_phone).first()
-    if not user:
-        user = User(phone=formatted_phone)
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+    if not user or not user.is_verified:
+        raise AuthenticationException(
+            error_code=ErrorCode.ACCOUNT_NOT_FOUND,
+            message=AuthMessages.ACCOUNT_NOT_FOUND
+        )
     
-    # Determine user role based on admin phone list  
-    settings = get_settings()
-    admin_phones = settings.phone_set
-    user_role = "admin" if formatted_phone in admin_phones else "user"
+    # Create access token
+    access_token = create_access_token(data={"sub": str(user.id), "phone": user.phone})
     
-    # Create JWT token with role
-    access_token = create_access_token(data={
-        "sub": str(user.id),
-        "phone": formatted_phone,
-        "role": user_role
-    })
-    
-    return TokenResponse(
+    token_response = TokenResponse(
         access_token=access_token,
         token_type="bearer",
         user_id=user.id
     )
-
-
-def get_token_payload(authorization: str = Header(None, alias="Authorization")):
-    """Extract and verify JWT token from Authorization header"""
-    if not authorization:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authorization header missing",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
     
-    scheme, token = authorization.split()
-    if scheme.lower() != "bearer":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication scheme",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    payload = verify_token(token)
-    if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    return payload
+    return APIResponse(
+        success=True,
+        data=token_response,
+        message=AuthMessages.LOGIN_SUCCESS
+    )
 
 
-@router.get("/me", response_model=UserMeResponse)
+@router.get("/me", response_model=APIResponse[UserMeResponse])
 async def get_current_user_info(
-    payload: dict = Depends(get_token_payload)
-):
+    current_user: User = Depends(get_current_user)
+) -> APIResponse[UserMeResponse]:
     """
     Get current user information from JWT token.
-    Returns user ID, phone, and role.
+    Uses clean authentication dependency with proper error handling.
     """
-    return UserMeResponse(
-        user_id=int(payload.get("sub")),
-        phone=payload.get("phone", ""),
-        role=payload.get("role", "user")
+    user_response = UserMeResponse(
+        user_id=current_user.id,
+        phone=current_user.phone,
+        role=current_user.role,
+        is_verified=current_user.is_verified,
+        created_at=current_user.created_at
+    )
+    
+    return APIResponse(
+        success=True,
+        data=user_response,
+        message="User information retrieved successfully"
+    )
+
+
+@router.post("/logout", response_model=APIResponse[dict])
+async def logout(
+    current_user: User = Depends(get_current_user)
+) -> APIResponse[dict]:
+    """
+    Logout endpoint (token invalidation would be handled client-side).
+    Provides consistent API response format.
+    """
+    return APIResponse(
+        success=True,
+        data={"user_id": current_user.id},
+        message=AuthMessages.LOGOUT_SUCCESS
     )
