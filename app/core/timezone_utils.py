@@ -5,7 +5,7 @@ Timezone utilities for backend timezone handling and conversion
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 import pytz
-from app.schemas.timezone import TimezoneInfo
+from app.schemas.user_timezone import TimezoneInfo
 
 
 # Supported timezones with display names
@@ -56,7 +56,7 @@ def get_supported_timezones() -> List[TimezoneInfo]:
             timezones.append(TimezoneInfo(
                 timezone=tz_name,
                 display_name=display_name,
-                current_time=current_time,
+                current_time=current_time.strftime('%Y-%m-%d %H:%M:%S %Z'),
                 utc_offset=formatted_offset,
                 is_dst=is_dst
             ))

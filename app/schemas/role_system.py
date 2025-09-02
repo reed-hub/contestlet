@@ -56,6 +56,10 @@ class UserWithRole(BaseModel):
     email: Optional[str] = None
     bio: Optional[str] = None
     
+    # Timezone Preferences
+    timezone: Optional[str] = None
+    timezone_auto_detect: bool = True
+    
     class Config:
         from_attributes = True
 
@@ -76,6 +80,10 @@ class UserWithRoleAndCompany(BaseModel):
     full_name: Optional[str] = None
     email: Optional[str] = None
     bio: Optional[str] = None
+    
+    # Timezone Preferences
+    timezone: Optional[str] = None
+    timezone_auto_detect: bool = True
     
     # Company Profile Fields (for sponsors)
     sponsor_profile_id: Optional[int] = None  # Added for contest creation
@@ -106,6 +114,8 @@ class UserWithRoleAndCompany(BaseModel):
             "full_name": user.full_name,
             "email": user.email,
             "bio": user.bio,
+            "timezone": getattr(user, 'timezone', None),
+            "timezone_auto_detect": getattr(user, 'timezone_auto_detect', True),
         }
         
         # Add company fields if user has sponsor profile
@@ -242,11 +252,15 @@ class SponsorProfileUpdate(BaseModel):
 
 
 class UnifiedProfileUpdate(BaseModel):
-    """Unified schema for updating user profiles (personal + company fields)"""
+    """Unified schema for updating user profiles (personal + company + timezone fields)"""
     # Personal Profile Fields (available to all users)
     full_name: Optional[str] = Field(None, min_length=1, max_length=255, description="Full name")
     email: Optional[str] = Field(None, max_length=255, description="Email address")
     bio: Optional[str] = Field(None, max_length=1000, description="Personal bio/description")
+    
+    # Timezone Preferences (available to all users)
+    timezone: Optional[str] = Field(None, max_length=50, description="IANA timezone identifier (e.g., 'America/New_York'). NULL uses system default (UTC)")
+    timezone_auto_detect: Optional[bool] = Field(None, description="Whether to auto-detect timezone from browser")
     
     # Company Profile Fields (only for sponsors)
     company_name: Optional[str] = Field(None, max_length=255, description="Company name")
@@ -268,6 +282,39 @@ class UnifiedProfileUpdate(BaseModel):
     def validate_urls(cls, v):
         if v and not (v.startswith('http://') or v.startswith('https://')):
             raise ValueError('URL must start with http:// or https://')
+        return v
+    
+    @validator('timezone')
+    def validate_timezone(cls, v):
+        """Validate timezone using the same logic as UserTimezonePreferences"""
+        if v is None:
+            return v  # Allow None for system default
+            
+        # List of supported timezones (consistent with admin system)
+        valid_timezones = [
+            'UTC',
+            'America/New_York',    # Eastern Time
+            'America/Chicago',     # Central Time  
+            'America/Denver',      # Mountain Time
+            'America/Los_Angeles', # Pacific Time
+            'America/Phoenix',     # Arizona Time
+            'America/Anchorage',   # Alaska Time
+            'Pacific/Honolulu',    # Hawaii Time
+            'Europe/London',       # GMT/BST
+            'Europe/Paris',        # CET/CEST
+            'Europe/Berlin',       # CET/CEST
+            'Asia/Tokyo',          # JST
+            'Asia/Shanghai',       # CST
+            'Australia/Sydney',    # AEST/AEDT
+            'Canada/Eastern',      # Eastern Time (Canada)
+            'Canada/Central',      # Central Time (Canada)
+            'Canada/Mountain',     # Mountain Time (Canada)
+            'Canada/Pacific',      # Pacific Time (Canada)
+        ]
+        
+        if v not in valid_timezones:
+            raise ValueError(f'Unsupported timezone: {v}. Supported timezones: {", ".join(valid_timezones)}')
+        
         return v
     
     @validator('company_name')
@@ -322,6 +369,10 @@ class UnifiedSponsorProfileResponse(BaseModel):
     full_name: Optional[str] = None
     email: Optional[str] = None
     bio: Optional[str] = None
+    
+    # Timezone Preferences
+    timezone: Optional[str] = None
+    timezone_auto_detect: bool = True
     
     # Company profile information
     company_profile: Optional[SponsorProfileResponse] = None

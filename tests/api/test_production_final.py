@@ -617,3 +617,158 @@ class TestProductionMediaEndpoints:
         data = response.json()
         assert "success" in data
         assert data["success"] is True
+
+
+class TestProductionTimezoneIntegration:
+    """Test timezone functionality integration."""
+
+    def test_timezone_supported_endpoint_unauthenticated(self, client):
+        """Test that supported timezones endpoint works without authentication."""
+        response = client.get("/timezone/supported")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert "data" in data
+        assert len(data["data"]["timezones"]) > 0  # Should have supported timezones
+        
+        # Check timezone structure
+        timezone_info = data["data"]["timezones"][0]
+        assert "timezone" in timezone_info
+        assert "display_name" in timezone_info
+        assert "current_time" in timezone_info
+        assert "utc_offset" in timezone_info
+
+    def test_timezone_validation_valid(self, client):
+        """Test timezone validation with valid timezone."""
+        response = client.post(
+            "/timezone/validate",
+            json={"timezone": "America/New_York"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["data"]["is_valid"] is True
+
+    def test_timezone_validation_invalid(self, client):
+        """Test timezone validation with invalid timezone."""
+        response = client.post(
+            "/timezone/validate",
+            json={"timezone": "Invalid/Timezone"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["data"]["is_valid"] is False
+
+    def test_user_timezone_preferences_get(self, client, regular_user, regular_token):
+        """Test getting user timezone preferences."""
+        response = client.get(
+            "/timezone/me",
+            headers={"Authorization": f"Bearer {regular_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert "timezone" in data["data"]
+        assert "timezone_auto_detect" in data["data"]
+        assert "effective_timezone" in data["data"]
+
+    def test_user_timezone_preferences_update(self, client, regular_user, regular_token):
+        """Test updating user timezone preferences."""
+        # Update timezone preferences
+        timezone_data = {
+            "timezone": "America/Los_Angeles",
+            "timezone_auto_detect": False
+        }
+        response = client.put(
+            "/timezone/me",
+            json=timezone_data,
+            headers={"Authorization": f"Bearer {regular_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        
+        # Verify the update
+        response = client.get(
+            "/timezone/me",
+            headers={"Authorization": f"Bearer {regular_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["data"]["timezone"] == "America/Los_Angeles"
+        assert data["data"]["timezone_auto_detect"] is False
+
+    def test_sponsor_timezone_preferences(self, client, sponsor_user, sponsor_token):
+        """Test timezone preferences for sponsor users."""
+        # Update timezone preferences
+        timezone_data = {
+            "timezone": "Europe/London",
+            "timezone_auto_detect": True
+        }
+        response = client.put(
+            "/timezone/me",
+            json=timezone_data,
+            headers={"Authorization": f"Bearer {sponsor_token}"}
+        )
+        assert response.status_code == 200
+        
+        # Verify via profile endpoint
+        response = client.get(
+            "/users/me",
+            headers={"Authorization": f"Bearer {sponsor_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["data"]["timezone"] == "Europe/London"
+        assert data["data"]["timezone_auto_detect"] is True
+
+    def test_admin_timezone_preferences(self, client, admin_user, admin_token):
+        """Test timezone preferences for admin users."""
+        # Update timezone preferences
+        timezone_data = {
+            "timezone": "Asia/Tokyo",
+            "timezone_auto_detect": False
+        }
+        response = client.put(
+            "/timezone/me",
+            json=timezone_data,
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
+        assert response.status_code == 200
+        
+        # Verify via profile endpoint
+        response = client.get(
+            "/users/me",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["data"]["timezone"] == "Asia/Tokyo"
+        assert data["data"]["timezone_auto_detect"] is False
+
+    def test_timezone_preferences_via_profile_update(self, client, regular_user, regular_token):
+        """Test updating timezone via the general profile update endpoint."""
+        profile_data = {
+            "full_name": "Updated Name",
+            "timezone": "America/Chicago",
+            "timezone_auto_detect": True
+        }
+        response = client.put(
+            "/users/me",
+            json=profile_data,
+            headers={"Authorization": f"Bearer {regular_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        
+        # Verify the timezone was updated
+        response = client.get(
+            "/timezone/me",
+            headers={"Authorization": f"Bearer {regular_token}"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["data"]["timezone"] == "America/Chicago"
+        assert data["data"]["timezone_auto_detect"] is True

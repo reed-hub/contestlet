@@ -53,6 +53,8 @@ async def get_my_profile(
             full_name=profile.full_name,
             email=profile.email,
             bio=profile.bio,
+            timezone=profile.timezone,
+            timezone_auto_detect=profile.timezone_auto_detect,
             company_profile=profile.sponsor_profile
         )
     else:
@@ -68,7 +70,9 @@ async def get_my_profile(
             role_assigned_by=profile.role_assigned_by,
             full_name=profile.full_name,
             email=profile.email,
-            bio=profile.bio
+            bio=profile.bio,
+            timezone=profile.timezone,
+            timezone_auto_detect=profile.timezone_auto_detect
         )
     
     return UserProfileResponse(
@@ -107,6 +111,8 @@ async def update_my_profile(
             full_name=updated_profile.full_name,
             email=updated_profile.email,
             bio=updated_profile.bio,
+            timezone=updated_profile.timezone,
+            timezone_auto_detect=updated_profile.timezone_auto_detect,
             company_profile=updated_profile.sponsor_profile
         )
     else:
@@ -122,7 +128,9 @@ async def update_my_profile(
             role_assigned_by=updated_profile.role_assigned_by,
             full_name=updated_profile.full_name,
             email=updated_profile.email,
-            bio=updated_profile.bio
+            bio=updated_profile.bio,
+            timezone=updated_profile.timezone,
+            timezone_auto_detect=updated_profile.timezone_auto_detect
         )
     
     return UserUpdateResponse(

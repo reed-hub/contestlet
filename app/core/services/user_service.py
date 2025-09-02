@@ -172,7 +172,7 @@ class UserService:
         update_data = profile_update.dict(exclude_unset=True)
         
         # Separate personal profile fields from company profile fields
-        personal_fields = {'full_name', 'email', 'bio'}
+        personal_fields = {'full_name', 'email', 'bio', 'timezone', 'timezone_auto_detect'}
         company_fields = {'company_name', 'website_url', 'logo_url', 'contact_name', 
                          'contact_email', 'contact_phone', 'industry', 'description'}
         

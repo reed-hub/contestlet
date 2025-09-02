@@ -25,6 +25,10 @@ class User(Base):
     role_assigned_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     role_assigned_by = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     
+    # Timezone Preferences (available to all user roles)
+    timezone = Column(String(50), nullable=True, default=None, index=True)  # IANA timezone identifier
+    timezone_auto_detect = Column(Boolean, default=True, nullable=False)  # Auto-detect from browser
+    
     # Relationships
     entries = relationship("Entry", back_populates="user")
     notifications = relationship("Notification", back_populates="user")

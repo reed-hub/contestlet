@@ -93,43 +93,63 @@ def auto_discover_routers() -> list:
 
 def setup_exception_handlers(app: FastAPI):
     """Setup custom exception handlers"""
+    from app.shared.exceptions.base import BusinessException, ContestException
+    
+    def get_cors_headers(request):
+        """Get CORS headers for error responses"""
+        origin = request.headers.get("origin", "*")
+        settings = get_settings()
+        allowed_origin = origin if origin in settings.allow_origins else "*"
+        
+        return {
+            "Access-Control-Allow-Origin": allowed_origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": ", ".join(settings.allow_methods),
+            "Access-Control-Allow-Headers": ", ".join(settings.allow_headers),
+        }
+    
+    @app.exception_handler(BusinessException)
+    async def business_exception_handler(request, exc: BusinessException):
+        """Handle business logic exceptions with CORS headers"""
+        cors_headers = get_cors_headers(request)
+        
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=exc.to_dict(),
+            headers=cors_headers
+        )
+    
+    @app.exception_handler(ContestException)
+    async def contest_exception_handler(request, exc: ContestException):
+        """Handle contest-specific exceptions with CORS headers"""
+        cors_headers = get_cors_headers(request)
+        
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=exc.to_dict(),
+            headers=cors_headers
+        )
     
     @app.exception_handler(500)
     async def internal_server_error_handler(request, exc):
         """Handle internal server errors with CORS headers"""
-        origin = request.headers.get("origin", "*")
-        settings = get_settings()
-        
-        # Use specific origin if it's in allowed origins, otherwise use *
-        allowed_origin = origin if origin in settings.allow_origins else "*"
+        cors_headers = get_cors_headers(request)
         
         return JSONResponse(
             status_code=500,
             content={"detail": "Internal server error", "error": str(exc)},
-            headers={
-                "Access-Control-Allow-Origin": allowed_origin,
-                "Access-Control-Allow-Credentials": "true",
-                "Access-Control-Allow-Methods": ", ".join(settings.allow_methods),
-                "Access-Control-Allow-Headers": ", ".join(settings.allow_headers),
-            }
+            headers=cors_headers
         )
     
     @app.exception_handler(422)
     async def validation_error_handler(request, exc):
         """Handle validation errors with CORS headers"""
-        origin = request.headers.get("origin", "*")
-        settings = get_settings()
-        allowed_origin = origin if origin in settings.allow_origins else "*"
+        cors_headers = get_cors_headers(request)
         
         return JSONResponse(
             status_code=422,
             content={"detail": "Validation error", "errors": str(exc)},
-            headers={
-                "Access-Control-Allow-Origin": allowed_origin,
-                "Access-Control-Allow-Credentials": "true",
-                "Access-Control-Allow-Methods": ", ".join(settings.allow_methods),
-                "Access-Control-Allow-Headers": ", ".join(settings.allow_headers),
-            }
+            headers=cors_headers
         )
 
 
