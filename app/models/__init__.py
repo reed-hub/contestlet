@@ -6,6 +6,7 @@ Base = declarative_base()
 from .user import User
 from .contest import Contest
 from .entry import Entry
+from .contest_winner import ContestWinner
 from .official_rules import OfficialRules
 from .notification import Notification
 from .admin_profile import AdminProfile
@@ -19,6 +20,7 @@ __all__ = [
     "User", 
     "Contest", 
     "Entry", 
+    "ContestWinner",
     "OfficialRules", 
     "Notification", 
     "AdminProfile", 

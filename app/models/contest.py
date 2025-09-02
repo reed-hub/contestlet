@@ -36,10 +36,14 @@ class Contest(Base):
     rejection_reason = Column(Text, nullable=True)                # Admin rejection feedback
     approval_message = Column(Text, nullable=True)                # Admin approval notes
     
-    # Winner tracking
-    winner_entry_id = Column(Integer, nullable=True)  # ID of winning entry
-    winner_phone = Column(String, nullable=True)  # Winner's phone number
-    winner_selected_at = Column(DateTime(timezone=True), nullable=True)  # When winner was selected
+    # Winner tracking (legacy single winner support)
+    winner_entry_id = Column(Integer, nullable=True)  # ID of winning entry (legacy)
+    winner_phone = Column(String, nullable=True)  # Winner's phone number (legacy)
+    winner_selected_at = Column(DateTime(timezone=True), nullable=True)  # When winner was selected (legacy)
+    
+    # Multiple winners support
+    winner_count = Column(Integer, default=1, nullable=False)  # Number of winners (1-50)
+    prize_tiers = Column(JSON, nullable=True)  # Optional structured prize information
     
     # Timezone metadata (for audit trail and admin context)
     created_timezone = Column(String(50), nullable=True)  # Admin's timezone when contest was created
@@ -81,6 +85,7 @@ class Contest(Base):
     official_rules = relationship("OfficialRules", back_populates="contest", uselist=False)
     notifications = relationship("Notification", back_populates="contest")
     sms_templates = relationship("SMSTemplate", back_populates="contest")
+    winners = relationship("ContestWinner", back_populates="contest", cascade="all, delete-orphan")
     
     # Enhanced Status System Relationships
     creator = relationship("User", foreign_keys=[created_by_user_id], back_populates="created_contests")  # Contest creator

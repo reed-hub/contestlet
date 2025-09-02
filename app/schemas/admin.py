@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, validator
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from .contest import ContestBase
 from .official_rules import OfficialRulesCreate, OfficialRulesUpdate, OfficialRulesResponse
 from .sms_template import SMSTemplateDict
@@ -19,6 +19,10 @@ class AdminContestCreate(ContestBase):
     minimum_age: Optional[int] = Field(18, ge=13, le=100, description="Minimum age requirement")
     max_entries_per_person: Optional[int] = Field(None, ge=1, description="Maximum entries per person (null = unlimited)")
     total_entry_limit: Optional[int] = Field(None, ge=1, description="Total entry limit (null = unlimited)")
+    
+    # Multiple winners support
+    winner_count: Optional[int] = Field(1, ge=1, le=50, description="Number of winners (1-50)")
+    prize_tiers: Optional[Dict[str, Any]] = Field(None, description="Optional structured prize information")
     
     # Additional contest details
     consolation_offer: Optional[str] = Field(None, description="Consolation prize/offer for non-winners")
@@ -135,10 +139,15 @@ class AdminContestResponse(BaseModel):
     official_rules: Optional[OfficialRulesResponse] = Field(None, description="Official contest rules")
     status: Optional[str] = Field(None, description="Contest status: active, inactive, ended, upcoming")
     
-    # Winner information
-    winner_entry_id: Optional[int] = Field(None, description="ID of winning entry")
-    winner_phone: Optional[str] = Field(None, description="Winner's phone number (masked)")
-    winner_selected_at: Optional[datetime] = Field(None, description="When winner was selected")
+    # Winner information (legacy single winner)
+    winner_entry_id: Optional[int] = Field(None, description="ID of winning entry (legacy)")
+    winner_phone: Optional[str] = Field(None, description="Winner's phone number (legacy, masked)")
+    winner_selected_at: Optional[datetime] = Field(None, description="When winner was selected (legacy)")
+    
+    # Multiple winners support
+    winner_count: int = Field(default=1, description="Number of winners for this contest")
+    selected_winners: int = Field(default=0, description="Number of winners currently selected")
+    prize_tiers: Optional[Dict[str, Any]] = Field(None, description="Structured prize information")
     
     # Timezone metadata
     created_timezone: Optional[str] = Field(None, description="Timezone used when contest was created")

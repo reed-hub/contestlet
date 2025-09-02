@@ -272,22 +272,63 @@ async def select_winner(
     admin_user: dict = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
-    """Select a random winner for a contest"""
-    contest_service = ContestService(db)
-    winner = contest_service.select_winner(contest_id, admin_user["sub"])
+    """
+    Select a random winner for a contest (Legacy endpoint).
     
-    if not winner:
-        return WinnerSelectionResponse(
-            success=False,
-            message="No eligible entries found for winner selection"
+    This endpoint maintains backward compatibility by using the new multiple winner
+    system with winner_count=1. For multiple winners, use the new endpoints in
+    /admin/contests/{contest_id}/select-winners
+    """
+    try:
+        from app.core.services.winner_service import WinnerService
+        
+        winner_service = WinnerService(db)
+        result = winner_service.select_winners(
+            contest_id=contest_id,
+            winner_count=1,
+            selection_method="random",
+            admin_user_id=admin_user.get("sub")
         )
-    
-    return WinnerSelectionResponse(
-        success=True,
-        message=f"Winner selected: {winner.user.phone}",
-        winner_entry_id=winner.id,
-        winner_phone=winner.user.phone
-    )
+        
+        if not result.success or not result.winners:
+            return WinnerSelectionResponse(
+                success=False,
+                message=result.message,
+                total_entries=result.total_entries
+            )
+        
+        winner = result.winners[0]
+        return WinnerSelectionResponse(
+            success=True,
+            message=f"Winner selected: {winner.phone}",
+            winner_entry_id=winner.entry_id,
+            winner_phone=winner.phone,
+            total_entries=result.total_entries
+        )
+        
+    except Exception as e:
+        # Fallback to legacy service if new service fails
+        try:
+            contest_service = ContestService(db)
+            winner = contest_service.select_winner(contest_id, admin_user["sub"])
+            
+            if not winner:
+                return WinnerSelectionResponse(
+                    success=False,
+                    message="No eligible entries found for winner selection"
+                )
+            
+            return WinnerSelectionResponse(
+                success=True,
+                message=f"Winner selected: {winner.user.phone}",
+                winner_entry_id=winner.id,
+                winner_phone=winner.user.phone
+            )
+        except Exception as fallback_error:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to select winner: {str(fallback_error)}"
+            )
 
 
 @router.delete("/{contest_id}", response_model=ContestDeleteResponse)
