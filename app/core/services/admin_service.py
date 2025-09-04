@@ -353,13 +353,13 @@ class AdminService:
     
     async def get_contest_entries(self, contest_id: int) -> List[Entry]:
         """
-        Get all entries for a contest (admin view).
+        Get all entries for a contest (admin view) with user information.
         
         Args:
             contest_id: Contest ID
             
         Returns:
-            List of contest entries
+            List of contest entries with user relationships loaded
             
         Raises:
             ResourceNotFoundException: If contest not found
@@ -369,7 +369,13 @@ class AdminService:
         if not contest:
             raise ResourceNotFoundException("Contest", contest_id)
         
-        return await self.entry_repo.get_entries_by_contest(contest_id)
+        # Get entries with user relationship loaded
+        from sqlalchemy.orm import joinedload
+        entries = self.db.query(Entry).options(
+            joinedload(Entry.user)
+        ).filter(Entry.contest_id == contest_id).all()
+        
+        return entries
     
     async def delete_contest_admin(self, contest_id: int, admin_user_id: int) -> bool:
         """

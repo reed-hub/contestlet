@@ -30,8 +30,11 @@ class TestRunner:
             "unit": self.tests_dir / "unit",
             "integration": self.tests_dir / "integration", 
             "api": self.tests_dir / "api",
+            "e2e": self.tests_dir / "e2e",
             "security": self.tests_dir / "security",
-            "performance": self.tests_dir / "performance"
+            "performance": self.tests_dir / "performance",
+            "multiple_winners": self.tests_dir / "api" / "test_multiple_winners_e2e.py",  # Specific test file
+            "manual_entry": self.tests_dir / "e2e" / "test_manual_entry_e2e.py"  # Manual entry E2E tests
         }
         
         # Production readiness benchmarks

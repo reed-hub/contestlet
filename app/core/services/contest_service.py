@@ -345,6 +345,141 @@ class ContestService:
         
         return entry
     
+    async def create_manual_entry(
+        self, 
+        contest_id: int, 
+        phone_number: str, 
+        admin_user_id: int,
+        source: str = "manual_admin",
+        notes: Optional[str] = None
+    ) -> Entry:
+        """
+        Create a manual contest entry for a user with the given phone number.
+        Admin-only functionality for offline/phone entries.
+        
+        Args:
+            contest_id: Contest ID
+            phone_number: User's phone number in E.164 format
+            admin_user_id: Admin creating the manual entry
+            source: Entry source tracking
+            notes: Optional admin notes
+            
+        Returns:
+            Created entry
+            
+        Raises:
+            ResourceNotFoundException: If contest or user not found
+            ContestException: If contest entry rules violated
+            BusinessException: If entry limits exceeded or duplicate entry
+        """
+        # Get contest
+        contest = self.db.query(Contest).filter(Contest.id == contest_id).first()
+        if not contest:
+            raise ResourceNotFoundException("Contest", contest_id)
+        
+        # Check contest status (allow manual entries for active, upcoming, and ended contests)
+        current_time = utc_now()
+        current_status = calculate_contest_status(
+            contest.status,
+            contest.start_time,
+            contest.end_time,
+            contest.winner_selected_at,
+            current_time
+        )
+        
+        # Manual entries allowed for more statuses than regular entries
+        allowed_statuses = ["active", "upcoming", "ended"]
+        if current_status not in allowed_statuses:
+            status_messages = {
+                "draft": "Contest is still in draft status",
+                "awaiting_approval": "Contest is awaiting admin approval",
+                "rejected": "Contest has been rejected",
+                "complete": "Contest is already complete with winners selected",
+                "cancelled": "Contest has been cancelled"
+            }
+            
+            message = status_messages.get(current_status, f"Contest is not accepting entries (status: {current_status})")
+            raise ContestException(
+                error_code=ErrorCode.CONTEST_NOT_ACTIVE,
+                message=message,
+                contest_id=contest_id,
+                contest_status=current_status
+            )
+        
+        # Find or create user with this phone number
+        user = self.db.query(User).filter(User.phone == phone_number).first()
+        if not user:
+            # Create a new user with the phone number
+            user = User(
+                phone=phone_number,
+                full_name=f"Manual Entry User ({phone_number})",
+                role="user",
+                is_verified=True,  # Consider manual entries as verified
+                created_by_user_id=admin_user_id
+            )
+            self.db.add(user)
+            self.db.flush()  # Get the user ID without committing
+        
+        # Check for duplicate entry
+        existing_entry = self.db.query(Entry).filter(
+            and_(
+                Entry.user_id == user.id,
+                Entry.contest_id == contest_id
+            )
+        ).first()
+        
+        if existing_entry:
+            raise BusinessException(
+                error_code=ErrorCode.ENTRY_DUPLICATE,
+                message=f"Phone number {phone_number} has already entered this contest",
+                details={
+                    "contest_id": contest_id, 
+                    "phone_number": phone_number,
+                    "existing_entry_id": existing_entry.id,
+                    "entry_source": existing_entry.source
+                }
+            )
+        
+        # Check entry limits (apply same limits as regular entries)
+        if contest.max_entries_per_person:
+            user_entry_count = self.db.query(Entry).filter(
+                and_(
+                    Entry.contest_id == contest_id,
+                    Entry.user_id == user.id
+                )
+            ).count()
+            
+            if user_entry_count >= contest.max_entries_per_person:
+                raise BusinessException(
+                    error_code=ErrorCode.ENTRY_LIMIT_EXCEEDED,
+                    message=f"Maximum {contest.max_entries_per_person} entries per person allowed",
+                    details={"limit": contest.max_entries_per_person, "current": user_entry_count}
+                )
+        
+        # Check total entry limit
+        if contest.total_entry_limit:
+            total_entries = self.db.query(Entry).filter(Entry.contest_id == contest_id).count()
+            if total_entries >= contest.total_entry_limit:
+                raise BusinessException(
+                    error_code=ErrorCode.ENTRY_LIMIT_EXCEEDED,
+                    message=f"Contest has reached maximum entry limit of {contest.total_entry_limit}",
+                    details={"limit": contest.total_entry_limit, "current": total_entries}
+                )
+        
+        # Create manual entry
+        entry = Entry(
+            user_id=user.id,
+            contest_id=contest_id,
+            source=source,
+            created_by_admin_id=admin_user_id,
+            admin_notes=notes
+        )
+        self.db.add(entry)
+        self.db.commit()
+        self.db.refresh(entry)
+        
+        return entry
+    
     async def delete_contest(self, contest_id: int, user_id: int, user_role: str) -> ContestDeletionResult:
         """
         Delete contest with comprehensive business rules and cleanup.

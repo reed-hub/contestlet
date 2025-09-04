@@ -132,7 +132,11 @@ class WinnerService:
         for position, entry in enumerate(selected_entries, 1):
             prize_description = None
             if prize_tiers and position <= len(prize_tiers):
-                prize_description = prize_tiers[position - 1].get('prize')
+                tier = prize_tiers[position - 1]
+                if isinstance(tier, dict):
+                    prize_description = tier.get('prize')
+                else:
+                    prize_description = getattr(tier, 'prize', None)
             
             winner = ContestWinner(
                 contest_id=contest_id,
@@ -141,6 +145,9 @@ class WinnerService:
                 prize_description=prize_description,
                 selected_at=utc_now()
             )
+            
+            # Set the entry relationship explicitly
+            winner.entry = entry
             
             self.db.add(winner)
             winners.append(winner)
@@ -153,7 +160,8 @@ class WinnerService:
         if winners:
             first_winner = winners[0]
             contest.winner_entry_id = first_winner.entry_id
-            contest.winner_phone = first_winner.phone
+            # Get phone from the winner's entry's user
+            contest.winner_phone = first_winner.entry.user.phone if first_winner.entry and first_winner.entry.user else None
             contest.winner_selected_at = first_winner.selected_at
         
         # Update contest prize tiers if provided
@@ -180,7 +188,11 @@ class WinnerService:
         Returns:
             List of ContestWinner objects
         """
-        return self.db.query(ContestWinner).filter(
+        from sqlalchemy.orm import joinedload
+        return self.db.query(ContestWinner).options(
+            joinedload(ContestWinner.entry).joinedload(Entry.user),
+            joinedload(ContestWinner.contest)
+        ).filter(
             ContestWinner.contest_id == contest_id
         ).order_by(ContestWinner.winner_position).all()
     
@@ -195,7 +207,11 @@ class WinnerService:
         Returns:
             ContestWinner or None if not found
         """
-        return self.db.query(ContestWinner).filter(
+        from sqlalchemy.orm import joinedload
+        return self.db.query(ContestWinner).options(
+            joinedload(ContestWinner.entry).joinedload(Entry.user),
+            joinedload(ContestWinner.contest)
+        ).filter(
             and_(
                 ContestWinner.contest_id == contest_id,
                 ContestWinner.winner_position == position
@@ -388,8 +404,14 @@ class WinnerService:
                 contest_status=status
             )
         
-        # Check if contest has ended
-        if contest.end_time > current_time:
+        # Check if contest has ended (handle timezone-aware/naive comparison)
+        contest_end_time = contest.end_time
+        if contest_end_time.tzinfo is None:
+            # Make contest end time timezone-aware if it's naive
+            from datetime import timezone
+            contest_end_time = contest_end_time.replace(tzinfo=timezone.utc)
+        
+        if contest_end_time > current_time:
             raise ContestException(
                 error_code=ErrorCode.CONTEST_NOT_ACTIVE,
                 message="Cannot select winners before contest ends",

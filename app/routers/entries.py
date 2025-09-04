@@ -28,14 +28,33 @@ async def get_my_entries(
     Get all contest entries for the current user with pagination.
     Clean controller with service delegation and type safety.
     """
-    entries = await entry_service.get_user_entries(
+    paginated_result = await entry_service.get_user_entries(
         user_id=current_user.id,
         pagination=pagination
     )
     
+    # Convert Entry models to EntryResponse schemas
+    entry_responses = [
+        EntryResponse.model_validate(entry) for entry in paginated_result.items
+    ]
+    
+    # Create PaginatedResponse
+    from app.shared.types.responses import PaginatedResponse, PaginationMeta
+    paginated_response = PaginatedResponse[EntryResponse](
+        items=entry_responses,
+        pagination=PaginationMeta(
+            total=paginated_result.total,
+            page=paginated_result.page,
+            size=paginated_result.size,
+            total_pages=paginated_result.total_pages,
+            has_next=paginated_result.has_next,
+            has_prev=paginated_result.has_prev
+        )
+    )
+    
     return EntryListResponse(
         success=True,
-        data=entries,
+        data=paginated_response,
         message="User entries retrieved successfully"
     )
 
@@ -51,14 +70,33 @@ async def get_contest_entries(
     Get all entries for a specific contest (admin only).
     Uses admin authentication and proper pagination.
     """
-    entries = await entry_service.get_contest_entries(
+    paginated_result = await entry_service.get_contest_entries(
         contest_id=contest_id,
         pagination=pagination
     )
     
+    # Convert Entry models to EntryResponse schemas
+    entry_responses = [
+        EntryResponse.model_validate(entry) for entry in paginated_result.items
+    ]
+    
+    # Create PaginatedResponse
+    from app.shared.types.responses import PaginatedResponse, PaginationMeta
+    paginated_response = PaginatedResponse[EntryResponse](
+        items=entry_responses,
+        pagination=PaginationMeta(
+            total=paginated_result.total,
+            page=paginated_result.page,
+            size=paginated_result.size,
+            total_pages=paginated_result.total_pages,
+            has_next=paginated_result.has_next,
+            has_prev=paginated_result.has_prev
+        )
+    )
+    
     return EntryListResponse(
         success=True,
-        data=entries,
+        data=paginated_response,
         message=f"Contest {contest_id} entries retrieved successfully"
     )
 

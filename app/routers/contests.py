@@ -3,13 +3,15 @@ Clean, refactored contests API endpoints.
 Uses new clean architecture with thin controllers and proper error handling.
 """
 
-from fastapi import APIRouter, Depends, Query, Path
+from fastapi import APIRouter, Depends, Query, Path, Body, HTTPException, status
 from typing import Optional
 
 from app.core.services.contest_service import ContestService
 from app.core.dependencies.auth import get_current_user, get_optional_user
 from app.core.dependencies.services import get_contest_service
+from app.core.admin_auth import get_admin_user
 from app.models.user import User
+from app.schemas.manual_entry import ManualEntryRequest
 from app.shared.types.pagination import PaginationParams, ContestFilterParams
 from app.shared.types.responses import APIResponse, PaginatedResponse, PaginationMeta
 from app.api.responses.contest import (
@@ -112,23 +114,119 @@ async def get_contest_details(
 @router.post("/{contest_id}/enter", response_model=ContestEntryResponse)
 async def enter_contest(
     contest_id: int = Path(..., gt=0, description="Contest ID"),
-    current_user: User = Depends(get_current_user),
+    manual_entry_data: Optional[ManualEntryRequest] = Body(None, description="Manual entry data for admin use"),
+    current_user: Optional[User] = Depends(get_optional_user),
     contest_service: ContestService = Depends(get_contest_service)
 ) -> ContestEntryResponse:
     """
-    Enter the current user into a contest.
-    All business logic delegated to service layer.
-    """
-    entry = await contest_service.enter_contest(contest_id, current_user.id)
+    Enter a user into a contest.
     
-    return ContestEntryResponse(
-        success=True,
-        message=ContestMessages.ENTRY_SUCCESSFUL,
-        contest_id=contest_id,
-        entry_id=entry.id,
-        user_id=current_user.id,
-        entered_at=entry.created_at
-    )
+    - Regular users: Enter themselves (no request body needed)
+    - Admins: Can create manual entries with phone_number and admin_override=true
+    """
+    
+    # Check if this is a manual entry request
+    if manual_entry_data and manual_entry_data.admin_override:
+        # This is an admin manual entry request
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required for manual entry creation"
+            )
+        
+        # Verify admin permissions
+        try:
+            # Import here to avoid circular imports
+            from app.core.repositories.contest_repository import ContestRepository
+            from app.core.repositories.entry_repository import EntryRepository
+            from app.core.repositories.user_repository import UserRepository
+            from app.database.database import get_db
+            from sqlalchemy.orm import Session
+            
+            # Get database session (we need to handle this differently in the endpoint)
+            db_gen = get_db()
+            db = next(db_gen)
+            
+            try:
+                # Check if user is admin
+                if current_user.role not in ["admin", "sponsor"]:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Admin privileges required for manual entry creation"
+                    )
+                
+                # Initialize service with repositories
+                contest_repo = ContestRepository(db)
+                entry_repo = EntryRepository(db)
+                user_repo = UserRepository(db)
+                manual_contest_service = ContestService(contest_repo, entry_repo, user_repo, db)
+                
+                # Create manual entry
+                entry = await manual_contest_service.create_manual_entry(
+                    contest_id=contest_id,
+                    phone_number=manual_entry_data.phone_number,
+                    admin_user_id=current_user.id,
+                    source=manual_entry_data.source,
+                    notes=manual_entry_data.notes
+                )
+                
+                # Load user relationship for response
+                db.refresh(entry)
+                
+                return ContestEntryResponse(
+                    success=True,
+                    message="Manual entry created successfully",
+                    contest_id=contest_id,
+                    entry_id=entry.id,
+                    user_id=entry.user_id,
+                    entered_at=entry.created_at
+                )
+                
+            finally:
+                db.close()
+                
+        except HTTPException:
+            raise
+        except Exception as e:
+            if "already entered" in str(e).lower():
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Phone number {manual_entry_data.phone_number} has already entered this contest"
+                )
+            elif "not found" in str(e).lower():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=str(e)
+                )
+            elif "limit" in str(e).lower():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(e)
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to create manual entry: {str(e)}"
+                )
+    
+    else:
+        # Regular user entry
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required"
+            )
+        
+        entry = await contest_service.enter_contest(contest_id, current_user.id)
+        
+        return ContestEntryResponse(
+            success=True,
+            message=ContestMessages.ENTRY_SUCCESSFUL,
+            contest_id=contest_id,
+            entry_id=entry.id,
+            user_id=current_user.id,
+            entered_at=entry.created_at
+        )
 
 
 @router.delete("/{contest_id}", response_model=ContestDeletionResponse)

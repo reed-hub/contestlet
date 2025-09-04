@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
-from app.core.auth import get_admin_user
+from app.core.admin_auth import get_admin_user
 from app.core.services.winner_service import WinnerService
 from app.core.services.notification_service import NotificationService
 from app.models.contest import Contest
@@ -75,7 +75,7 @@ async def select_multiple_winners(
                 selected_at=winner.selected_at,
                 notified_at=winner.notified_at,
                 claimed_at=winner.claimed_at,
-                phone=winner.phone,
+                phone=winner.entry.user.phone if winner.entry and winner.entry.user else "Unknown",
                 is_notified=winner.is_notified,
                 is_claimed=winner.is_claimed
             ))
@@ -133,9 +133,9 @@ async def select_single_winner(
         winner = result.winners[0]
         return WinnerSelectionResponse(
             success=True,
-            message=f"Winner selected: {winner.phone}",
+            message=f"Winner selected: {winner.entry.user.phone if winner.entry and winner.entry.user else 'Unknown'}",
             winner_entry_id=winner.entry_id,
-            winner_phone=winner.phone,
+            winner_phone=winner.entry.user.phone if winner.entry and winner.entry.user else "Unknown",
             total_entries=result.total_entries
         )
         
@@ -184,7 +184,7 @@ async def get_contest_winners(
                 selected_at=winner.selected_at,
                 notified_at=winner.notified_at,
                 claimed_at=winner.claimed_at,
-                phone=winner.phone,
+                phone=winner.entry.user.phone if winner.entry and winner.entry.user else "Unknown",
                 is_notified=winner.is_notified,
                 is_claimed=winner.is_claimed
             ))
@@ -254,7 +254,7 @@ async def manage_winner(
             return {
                 "success": True,
                 "message": f"Winner at position {position} notified",
-                "phone": winner.phone
+                "phone": winner.entry.user.phone if winner.entry and winner.entry.user else "Unknown"
             }
             
         elif request.action == "mark_claimed":
@@ -345,7 +345,7 @@ async def notify_winners(
                 notifications_sent += 1
                 details.append({
                     "position": winner.winner_position,
-                    "phone": winner.phone,
+                    "phone": winner.entry.user.phone if winner.entry and winner.entry.user else "Unknown",
                     "status": "sent" if not request.test_mode else "test_mode",
                     "prize": winner.prize_description
                 })
@@ -354,7 +354,7 @@ async def notify_winners(
                 failed_notifications += 1
                 details.append({
                     "position": winner.winner_position,
-                    "phone": winner.phone,
+                    "phone": winner.entry.user.phone if winner.entry and winner.entry.user else "Unknown",
                     "status": "failed",
                     "error": str(e)
                 })

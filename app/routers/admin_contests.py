@@ -12,12 +12,14 @@ from app.schemas.admin import (
     AdminEntryResponse, WinnerSelectionResponse, WinnerNotificationResponse,
     ContestDeleteResponse, ContestDeletionSummary
 )
+from app.schemas.manual_entry import ManualEntryRequest, ManualEntryResponse
 from app.schemas.role_system import UserWithRole
 from app.core.admin_auth import get_admin_user
 from app.core.dependencies import get_admin_user as get_admin_user_dependency
 from app.core.exceptions import raise_authorization_error
-from app.services.contest_service import ContestService
-from app.services.admin_service import AdminService
+from app.core.dependencies.services import get_admin_service, get_entry_service
+from app.core.services.admin_service import AdminService
+from app.core.services.entry_service import EntryService
 
 router = APIRouter(prefix="/admin/contests", tags=["admin-contests"])
 
@@ -193,14 +195,18 @@ async def get_admin_contest_by_id(
     return AdminContestResponse(**contest_data)
 
 
+@router.get("", response_model=List[AdminContestResponse])
 @router.get("/", response_model=List[AdminContestResponse])
 async def get_all_contests(
+    page: int = 1,
+    size: int = 3,
     admin_user: dict = Depends(get_admin_user),
-    db: Session = Depends(get_db)
+    admin_service: AdminService = Depends(get_admin_service)
 ):
-    """Get all contests with admin access"""
-    contest_service = ContestService(db)
-    contests = contest_service.get_all_contests()
+    """Get all contests with admin access - returns ALL contests regardless of status"""
+    # Calculate offset for pagination
+    offset = (page - 1) * size
+    contests = await admin_service.get_all_contests(limit=size, offset=offset)
     
     # Convert contests to response format with enhanced status system
     contest_responses = []
@@ -258,12 +264,27 @@ async def get_all_contests(
 async def get_contest_entries(
     contest_id: int,
     admin_user: dict = Depends(get_admin_user),
-    db: Session = Depends(get_db)
+    admin_service: AdminService = Depends(get_admin_service)
 ):
     """Get all entries for a specific contest"""
-    contest_service = ContestService(db)
-    entries = contest_service.get_contest_entries(contest_id)
-    return [AdminEntryResponse.from_orm(entry) for entry in entries]
+    entries = await admin_service.get_contest_entries(contest_id)
+    
+    # Convert entries to AdminEntryResponse with phone number from user relationship
+    entry_responses = []
+    for entry in entries:
+        # Create response manually to handle phone_number field
+        entry_response = AdminEntryResponse(
+            id=entry.id,
+            contest_id=entry.contest_id,
+            user_id=entry.user_id,
+            phone_number=entry.user.phone if entry.user else "Unknown",
+            created_at=entry.created_at,
+            selected=entry.selected,
+            status=getattr(entry, 'status', 'active')
+        )
+        entry_responses.append(entry_response)
+    
+    return entry_responses
 
 
 @router.post("/{contest_id}/select-winner", response_model=WinnerSelectionResponse)
@@ -298,11 +319,14 @@ async def select_winner(
             )
         
         winner = result.winners[0]
+        # Get the phone number from the winner's entry's user
+        winner_phone = winner.entry.user.phone if winner.entry and winner.entry.user else "Unknown"
+        
         return WinnerSelectionResponse(
             success=True,
-            message=f"Winner selected: {winner.phone}",
+            message=f"Winner selected: {winner_phone}",
             winner_entry_id=winner.entry_id,
-            winner_phone=winner.phone,
+            winner_user_phone=winner_phone,
             total_entries=result.total_entries
         )
         
@@ -357,3 +381,102 @@ async def get_contest_statistics(
     contest_service = ContestService(db)
     stats = contest_service.get_contest_statistics(contest_id)
     return stats
+
+
+@router.post("/{contest_id}/manual-entry", response_model=ManualEntryResponse)
+async def create_manual_entry(
+    contest_id: int,
+    entry_request: ManualEntryRequest,
+    admin_user: dict = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Create a manual contest entry for offline/phone participants.
+    Admin-only endpoint for adding entries with phone numbers.
+    """
+    try:
+        # Import here to avoid circular imports
+        from app.core.services.contest_service import ContestService
+        from app.core.repositories.contest_repository import ContestRepository
+        from app.core.repositories.entry_repository import EntryRepository
+        from app.core.repositories.user_repository import UserRepository
+        
+        # Initialize service with repositories
+        contest_repo = ContestRepository(db)
+        entry_repo = EntryRepository(db)
+        user_repo = UserRepository(db)
+        contest_service = ContestService(contest_repo, entry_repo, user_repo, db)
+        
+        # Get admin user ID
+        admin_user_id = int(admin_user["user_id"]) if admin_user["user_id"] != "legacy_admin" else 1
+        
+        # Create manual entry
+        entry = await contest_service.create_manual_entry(
+            contest_id=contest_id,
+            phone_number=entry_request.phone_number,
+            admin_user_id=admin_user_id,
+            source=entry_request.source,
+            notes=entry_request.notes
+        )
+        
+        # Load relationships for response
+        db.refresh(entry)
+        
+        return ManualEntryResponse(
+            entry_id=entry.id,
+            contest_id=entry.contest_id,
+            phone_number=entry.user.phone,
+            created_at=entry.created_at,
+            created_by_admin_id=entry.created_by_admin_id,
+            source=entry.source,
+            status=entry.status,
+            notes=entry.admin_notes
+        )
+        
+    except Exception as e:
+        # Handle specific error types
+        if "already entered" in str(e).lower():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "success": False,
+                    "message": str(e),
+                    "error_code": "DUPLICATE_ENTRY"
+                }
+            )
+        elif "not found" in str(e).lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "success": False,
+                    "message": str(e),
+                    "error_code": "CONTEST_NOT_FOUND"
+                }
+            )
+        elif "limit" in str(e).lower():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "success": False,
+                    "message": str(e),
+                    "error_code": "ENTRY_LIMIT_EXCEEDED"
+                }
+            )
+        elif "not accepting entries" in str(e).lower():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "success": False,
+                    "message": str(e),
+                    "error_code": "CONTEST_CLOSED"
+                }
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={
+                    "success": False,
+                    "message": f"Failed to create manual entry: {str(e)}",
+                    "error_code": "INTERNAL_ERROR"
+                }
+            )
